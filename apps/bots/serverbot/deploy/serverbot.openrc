@@ -8,7 +8,7 @@ respawn_delay=10
 respawn_max=10
 respawn_period=300
 retry="TERM/30/KILL/5"
-supervise_daemon_args="--env PYTHONUNBUFFERED=1 --env PYTHONDONTWRITEBYTECODE=1 --env UV_NO_CACHE=1"
+supervise_daemon_args="--env PYTHONUNBUFFERED=1 --env PYTHONDONTWRITEBYTECODE=1 --env UV_NO_CACHE=1 --env UV_PYTHON=/usr/bin/python3 --env UV_PYTHON_DOWNLOADS=never"
 output_log="/var/log/serverbot/serverbot.log"
 error_log="/var/log/serverbot/serverbot-error.log"
 depend() {

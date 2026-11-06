@@ -93,3 +93,13 @@ def test_probe_drops_supplementary_groups_for_bot_healthcheck(monkeypatch):
         assert recorded['extra_groups'] == ()
     finally:
         sys.path.remove(str(host))
+
+
+def test_probe_counts_app_process_without_counting_uv_wrapper():
+    spec = importlib.util.spec_from_file_location('probe_process_test', Path(__file__).resolve().parents[1] / 'deploy/host/probe.py')
+    probe = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(probe)
+    assert probe.is_bot_process([b'python', b'/srv/bots/workbot/.venv/bin/bot'], 'workbot', 'workbot')
+    assert probe.is_bot_process([b'python', b'-m', b'workbot'], 'workbot', 'workbot')
+    assert not probe.is_bot_process([b'uv', b'run', b'bot'], 'workbot', 'workbot')
+    assert not probe.is_bot_process([b'python', b'-m', b'other'], 'workbot', 'workbot')

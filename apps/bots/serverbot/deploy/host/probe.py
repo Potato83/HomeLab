@@ -25,6 +25,13 @@ def publish(path, data):
     tmp.chmod(0o644)
     tmp.replace(path)
 
+def is_bot_process(args, user, module):
+    script = f'/srv/bots/{user}/.venv/bin/bot'.encode()
+    return script in args or any(
+        arg == b'-m' and following == module.encode()
+        for arg, following in zip(args, args[1:])
+    )
+
 def main():
     with (BASE/'probe.lock').open('w') as lock:
         try:
@@ -60,7 +67,7 @@ def main():
                     try:
                         if p.name.isdigit() and p.stat().st_uid == uid:
                             args = (p/'cmdline').read_bytes().split(b'\0')
-                            if b'-m' in args and args[args.index(b'-m')+1] == module.encode():
+                            if is_bot_process(args, user, module):
                                 matches += 1
                     except (OSError, IndexError):
                         continue
