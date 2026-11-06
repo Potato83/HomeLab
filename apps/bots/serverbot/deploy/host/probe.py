@@ -26,7 +26,7 @@ def publish(path, data):
     tmp.replace(path)
 
 def is_bot_process(args, user, module):
-    script = f'/srv/bots/{user}/.venv/bin/bot'.encode()
+    script = f'/srv/homelab/apps/bots/{user}/.venv/bin/bot'.encode()
     return script in args or any(
         arg == b'-m' and following == module.encode()
         for arg, following in zip(args, args[1:])
@@ -74,13 +74,13 @@ def main():
                 return ('ok' if matches == 1 else 'critical', f'Expected one app process; found {matches}')
             check('bot:'+user, user+' process', process)
         check('bot:chatbot-db', 'ChatBot database', lambda: ('ok','Database schema ready') if run([
-            '/srv/bots/chatbot/.venv/bin/python','-m','chatbot.healthcheck'],
-            user='chatbot',cwd='/srv/bots/chatbot')[0] == 0 else ('critical','Database healthcheck failed'))
+            '/srv/homelab/apps/bots/chatbot/.venv/bin/python','-m','chatbot.healthcheck'],
+            user='chatbot',cwd='/srv/homelab/apps/bots/chatbot')[0] == 0 else ('critical','Database healthcheck failed'))
         def workbot_db():
             code, text = run(['/usr/bin/python3','-c',
-                'import sqlite3; c=sqlite3.connect("file:/srv/bots/workbot/data/workbot.sqlite3?mode=ro",uri=True,timeout=3); '
+                'import sqlite3; c=sqlite3.connect("file:/srv/homelab/apps/bots/workbot/data/workbot.sqlite3?mode=ro",uri=True,timeout=3); '
                 'print(c.execute("SELECT COUNT(*) FROM source_status WHERE error IS NOT NULL").fetchone()[0]); c.close()'],
-                user='workbot',cwd='/srv/bots/workbot')
+                user='workbot',cwd='/srv/homelab/apps/bots/workbot')
             if code:
                 return 'critical','Database query failed'
             errors = int(text.strip())

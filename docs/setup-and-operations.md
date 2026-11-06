@@ -14,10 +14,10 @@ uv run bot
 
 ## Alpine
 
-Проект размещается в `/srv/bots/<имя>`, запускается отдельным пользователем `<имя>`. Установите uv и Python, создайте пользователя, затем:
+Проект размещается в `/srv/homelab/apps/bots/<имя>`, запускается отдельным пользователем `<имя>`. Установите uv и Python, создайте пользователя, затем:
 
 ```sh
-cd /srv/bots/chatbot
+cd /srv/homelab/apps/bots/chatbot
 uv sync --locked --no-dev --python /usr/bin/python3
 install -m 755 deploy/chatbot.openrc /etc/init.d/chatbot
 rc-update add chatbot default
@@ -28,6 +28,8 @@ rc-service chatbot start
 
 Статус: `rc-service chatbot status`. Перезапуск: `rc-service chatbot restart`. Журналы: `/var/log/chatbot/`. Подставляйте имя нужного бота.
 
-При обновлении остановите службу, замените код, выполните `uv sync --locked --no-dev --python /usr/bin/python3`, запустите службу и проверьте журнал. Данные остаются в `data/`.
+При обновлении остановите службу, замените код, выполните `uv sync --locked --no-dev --python /usr/bin/python3`, запустите службу и проверьте журнал. Данные остаются в `data/`. При обновлении общего checkout сначала остановите все три службы, затем выполните `git pull`, синхронизируйте зависимости каждого бота и запустите службы.
 
 Для перехода со старой установки перенесите код и данные; старое имя службы WorkBot — `botwork`. Переменные: ServerBot `VPN` → `PROXY_URL`; WorkBot `BOTWORK_*` → `WORKBOT_*`, `TELEGRAM_BOT_TOKEN` → `BOT_TOKEN`, `TELEGRAM_CHAT_ID` → `OWNER_ID`. Новый путь состояния ServerBot — `data/state.json`, базы ChatBot — `data/chatbot.sqlite3`. Структура таблиц SQLite не меняется.
+
+Рабочие `.env`, `data/` и `.venv/` находятся рядом с кодом и исключены из Git. Личные настройки храните в игнорируемом `config.local.toml`: ServerBot выбирает его через `SERVERBOT_CONFIG`, WorkBot — через `WORKBOT_CONFIG` в `.env`. Отслеживаемый `config.toml` остаётся примером.

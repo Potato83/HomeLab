@@ -160,7 +160,7 @@ def _positive_hours(value: object, name: str, check_name: str) -> float:
 
 # load toml config and returns AppConfig
 def load_config(path: str | Path | None = None) -> AppConfig:
-    config_path = Path(path) if path is not None else Path("config.toml")
+    config_path = Path(path) if path is not None else Path(getenv("SERVERBOT_CONFIG", "config.toml"))
     try:
         with config_path.open("rb") as config_file:
             raw = tomllib.load(config_file)

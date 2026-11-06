@@ -59,3 +59,13 @@ def test_duplicate_http_names_are_rejected(tmp_path):
                     '[[checks.http]]\nname = "API"\nurl = "http://localhost/health"\n' * 2)
     with pytest.raises(ConfigError, match="must be unique"):
         load_config(path)
+
+
+def test_local_config_override_and_explicit_path(tmp_path, monkeypatch):
+    local = tmp_path / 'config.local.toml'
+    local.write_text('[monitoring]\ninterval_seconds = 90\n[[checks.disk]]\npath = "/"')
+    explicit = tmp_path / 'explicit.toml'
+    explicit.write_text('[monitoring]\ninterval_seconds = 120\n[[checks.disk]]\npath = "/"')
+    monkeypatch.setenv('SERVERBOT_CONFIG', str(local))
+    assert load_config().check_interval_seconds == 90
+    assert load_config(explicit).check_interval_seconds == 120
