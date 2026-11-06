@@ -28,6 +28,6 @@ rc-service chatbot start
 
 Статус: `rc-service chatbot status`. Перезапуск: `rc-service chatbot restart`. Журналы: `/var/log/chatbot/`. Подставляйте имя нужного бота.
 
-При обновлении остановите службу, замените код, выполните `uv sync --locked --no-dev`, запустите службу и проверьте журнал. Данные остаются в `data/`.
+При обновлении остановите службу, замените код, выполните `uv sync --locked --no-dev --python /usr/bin/python3`, запустите службу и проверьте журнал. Данные остаются в `data/`.
 
 Для перехода со старой установки перенесите код и данные; старое имя службы WorkBot — `botwork`. Переменные: ServerBot `VPN` → `PROXY_URL`; WorkBot `BOTWORK_*` → `WORKBOT_*`, `TELEGRAM_BOT_TOKEN` → `BOT_TOKEN`, `TELEGRAM_CHAT_ID` → `OWNER_ID`. Новый путь состояния ServerBot — `data/state.json`, базы ChatBot — `data/chatbot.sqlite3`. Структура таблиц SQLite не меняется.
