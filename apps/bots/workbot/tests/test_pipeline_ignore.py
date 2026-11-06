@@ -3,9 +3,9 @@ import tempfile
 import unittest
 from unittest.mock import Mock
 
-from botwork.models import Decision, Vacancy
-from botwork.pipeline import handle_feedback, handle_track, track_text, vacancy_ref
-from botwork.storage import Store
+from workbot.models import Decision, Vacancy
+from workbot.pipeline import handle_feedback, handle_track, track_text, vacancy_ref
+from workbot.storage import Store
 
 
 class IgnoreVacancyTests(unittest.TestCase):
@@ -41,7 +41,7 @@ class IgnoreVacancyTests(unittest.TestCase):
         self.assertEqual(self.store.tracked_vacancies()[0]['status'], 'saved')
 
     def test_callback_owner_and_replayed_update(self):
-        from botwork.telegram import Telegram
+        from workbot.telegram import Telegram
         telegram = Telegram('dummy', '123')
         telegram.answer_callback = Mock()
         callback = {'id': 'callback', 'from': {'id': 123}, 'message': {'chat': {'id': 123, 'type': 'private'}}, 'data': 'bw:i:' + self.ref}
@@ -57,7 +57,7 @@ class IgnoreVacancyTests(unittest.TestCase):
         self.assertEqual(self.store.tracked_vacancies()[0]['status'], 'saved')
 
     def test_buttons_in_individual_and_digest_delivery(self):
-        from botwork.telegram import deliver, deliver_digest
+        from workbot.telegram import deliver, deliver_digest
         telegram = Mock()
         self.assertEqual(deliver(self.store, telegram, ['mts'], 10, delay=0), 1)
         buttons = telegram.send.call_args.kwargs['reply_markup']['inline_keyboard'][0]

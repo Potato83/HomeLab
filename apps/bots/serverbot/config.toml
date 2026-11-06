@@ -1,6 +1,6 @@
 [monitoring]
 interval_seconds = 300
-state_file = "var/state.json"
+state_file = "data/state.json"
 
 [system]
 # CPU usage warning and critical thresholds, in percent.

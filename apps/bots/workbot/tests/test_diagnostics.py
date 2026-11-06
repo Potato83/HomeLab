@@ -8,13 +8,13 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from botwork.__main__ import main
-from botwork.config import load_config
-from botwork.diagnostics import database_check, diagnose, format_report, send_test_message
-from botwork.http import FetchError, telegram_call
-from botwork.models import Vacancy, Decision
-from botwork.storage import Store
-from botwork.telegram import Telegram
+from workbot.__main__ import main
+from workbot.config import load_config
+from workbot.diagnostics import database_check, diagnose, format_report, send_test_message
+from workbot.http import FetchError, telegram_call
+from workbot.models import Vacancy, Decision
+from workbot.storage import Store
+from workbot.telegram import Telegram
 
 ROOT = Path(__file__).resolve().parents[1]
 TOKEN = '123456:EXAMPLE_SECRET_TOKEN_FOR_TESTS'
@@ -25,8 +25,8 @@ class DiagnosticsTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.directory = Path(self.tmp.name)
         self.db_path = self.directory / 'nested' / 'bot.sqlite3'
-        self.env = {'TELEGRAM_BOT_TOKEN': TOKEN, 'TELEGRAM_CHAT_ID': '42',
-                    'BOTWORK_DB': str(self.db_path), 'BOTWORK_CONFIG': str(ROOT / 'config.toml')}
+        self.env = {'BOT_TOKEN': TOKEN, 'OWNER_ID': '42',
+                    'WORKBOT_DB': str(self.db_path), 'WORKBOT_CONFIG': str(ROOT / 'config.toml')}
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -40,7 +40,7 @@ class DiagnosticsTests(unittest.TestCase):
         return {item['check']: item['state'] for item in report['checks']}
 
     def test_offline_uses_no_network_and_does_not_create_history(self):
-        with patch('botwork.diagnostics.telegram_call') as rpc, patch('botwork.diagnostics.scan') as scan:
+        with patch('workbot.diagnostics.telegram_call') as rpc, patch('workbot.diagnostics.scan') as scan:
             report = diagnose(env=self.env)
         self.assertTrue(report['ok'])
         self.assertEqual(report['mode'], 'offline')
@@ -51,15 +51,15 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertNotIn(TOKEN, json.dumps(report))
 
     def test_missing_credentials_are_actionable(self):
-        report = diagnose(env=self.env | {'TELEGRAM_BOT_TOKEN': '', 'TELEGRAM_CHAT_ID': ''})
+        report = diagnose(env=self.env | {'BOT_TOKEN': '', 'OWNER_ID': ''})
         self.assertFalse(report['ok'])
         self.assertEqual(self.states(report)['telegram_token'], 'error')
         self.assertIn('chat-id', format_report(report))
 
     def test_invalid_chat_id_rejected_without_requests(self):
         for value in ['-10042', '@channel', '0', '42 1']:
-            with self.subTest(value=value), patch('botwork.diagnostics.telegram_call') as rpc:
-                report = diagnose(env=self.env | {'TELEGRAM_CHAT_ID': value})
+            with self.subTest(value=value), patch('workbot.diagnostics.telegram_call') as rpc:
+                report = diagnose(env=self.env | {'OWNER_ID': value})
                 self.assertEqual(self.states(report)['telegram_chat'], 'error')
                 rpc.assert_not_called()
                 with self.assertRaises(ValueError):
@@ -115,7 +115,7 @@ class DiagnosticsTests(unittest.TestCase):
             store.close()
 
     def test_online_telegram_checks_only_read_methods(self):
-        with patch('botwork.diagnostics.telegram_call', side_effect=self.rpc) as rpc:
+        with patch('workbot.diagnostics.telegram_call', side_effect=self.rpc) as rpc:
             report = diagnose(env=self.env, online=True, skip_sources=True)
         self.assertTrue(report['ok'])
         self.assertEqual([call.args[1] for call in rpc.call_args_list], ['getMe', 'getWebhookInfo', 'getChat'])
@@ -124,7 +124,7 @@ class DiagnosticsTests(unittest.TestCase):
     def test_webhook_conflict_is_reported_without_disclosing_url(self):
         def rpc(token, method, payload):
             return {'url': 'https://private.example/secret-hook'} if method == 'getWebhookInfo' else self.rpc(token, method, payload)
-        with patch('botwork.diagnostics.telegram_call', side_effect=rpc) as call:
+        with patch('workbot.diagnostics.telegram_call', side_effect=rpc) as call:
             report = diagnose(env=self.env, online=True, skip_sources=True)
         self.assertFalse(report['ok'])
         self.assertEqual(self.states(report)['telegram_polling'], 'error')
@@ -132,7 +132,7 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertNotIn('deleteWebhook', [item.args[1] for item in call.call_args_list])
 
     def test_invalid_token_skips_chat_access(self):
-        with patch('botwork.diagnostics.telegram_call', side_effect=FetchError('Telegram HTTP 401')) as rpc:
+        with patch('workbot.diagnostics.telegram_call', side_effect=FetchError('Telegram HTTP 401')) as rpc:
             report = diagnose(env=self.env, online=True, skip_sources=True)
         self.assertFalse(report['ok'])
         self.assertEqual(rpc.call_count, 1)
@@ -143,14 +143,14 @@ class DiagnosticsTests(unittest.TestCase):
             with self.subTest(response=response):
                 def rpc(token, method, payload):
                     return response if method == 'getChat' else self.rpc(token, method, payload)
-                with patch('botwork.diagnostics.telegram_call', side_effect=rpc):
+                with patch('workbot.diagnostics.telegram_call', side_effect=rpc):
                     report = diagnose(env=self.env, online=True, skip_sources=True)
                 self.assertEqual(self.states(report)['telegram_access'], 'error')
 
     def test_online_source_checks_do_not_use_store(self):
         result = {'sources': {'mts': {'error': None, 'found': 39, 'matched': 1},
                               'croc': {'error': 'HTTP 503'}}}
-        with patch('botwork.diagnostics.telegram_call', side_effect=self.rpc), patch('botwork.diagnostics.scan', return_value=result) as scan:
+        with patch('workbot.diagnostics.telegram_call', side_effect=self.rpc), patch('workbot.diagnostics.scan', return_value=result) as scan:
             report = diagnose(env=self.env, online=True)
         self.assertFalse(report['ok'])
         self.assertEqual(self.states(report)['source:mts'], 'ok')
@@ -160,13 +160,13 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertFalse(self.db_path.exists())
 
     def test_errors_cannot_echo_token(self):
-        with patch('botwork.diagnostics.telegram_call', side_effect=FetchError('request /bot' + TOKEN)):
+        with patch('workbot.diagnostics.telegram_call', side_effect=FetchError('request /bot' + TOKEN)):
             report = diagnose(env=self.env, online=True, skip_sources=True)
         self.assertNotIn(TOKEN, json.dumps(report))
         self.assertNotIn(TOKEN.partition(':')[2], format_report(report))
 
     def test_explicit_test_message_sends_exactly_once(self):
-        with patch('botwork.diagnostics.telegram_call', side_effect=self.rpc), patch('botwork.telegram.telegram_call', return_value={'message_id': 1}) as send:
+        with patch('workbot.diagnostics.telegram_call', side_effect=self.rpc), patch('workbot.telegram.telegram_call', return_value={'message_id': 1}) as send:
             result = send_test_message(TOKEN, '42')
         self.assertTrue(result['ok'])
         self.assertEqual(send.call_count, 1)
@@ -177,7 +177,7 @@ class DiagnosticsTests(unittest.TestCase):
     def test_test_message_not_sent_if_chat_validation_fails(self):
         def rpc(token, method, payload):
             return {'id': 42, 'type': 'group'} if method == 'getChat' else self.rpc(token, method, payload)
-        with patch('botwork.diagnostics.telegram_call', side_effect=rpc), patch('botwork.telegram.telegram_call') as send:
+        with patch('workbot.diagnostics.telegram_call', side_effect=rpc), patch('workbot.telegram.telegram_call') as send:
             with self.assertRaises(FetchError):
                 send_test_message(TOKEN, '42')
         send.assert_not_called()
@@ -185,9 +185,9 @@ class DiagnosticsTests(unittest.TestCase):
     def test_doctor_cli_reports_config_error_as_json(self):
         missing = str(self.directory / 'missing.toml')
         output = io.StringIO()
-        with (patch('sys.argv', ['botwork', 'doctor', '--config', missing, '--json']),
-              patch.dict(os.environ, self.env, clear=True), patch('botwork.__main__.load_env'),
-              patch('botwork.__main__.logging.basicConfig'),
+        with (patch('sys.argv', ['workbot', 'doctor', '--config', missing, '--json']),
+              patch.dict(os.environ, self.env, clear=True), patch('workbot.__main__.load_env'),
+              patch('workbot.__main__.logging.basicConfig'),
               redirect_stdout(output)):
             self.assertEqual(main(), 1)
         report = json.loads(output.getvalue())
@@ -195,13 +195,13 @@ class DiagnosticsTests(unittest.TestCase):
 
     def test_test_telegram_cli_does_not_require_config_or_open_database(self):
         output = io.StringIO()
-        with (patch('sys.argv', ['botwork', 'test-telegram', '--json']),
-              patch.dict(os.environ, self.env, clear=True), patch('botwork.__main__.load_env'),
-              patch('botwork.__main__.logging.basicConfig'),
-              patch('botwork.__main__.load_config') as config,
-              patch('botwork.__main__.Store') as store,
-              patch('botwork.diagnostics.telegram_call', side_effect=self.rpc),
-              patch('botwork.telegram.telegram_call', return_value={}), redirect_stdout(output)):
+        with (patch('sys.argv', ['workbot', 'test-telegram', '--json']),
+              patch.dict(os.environ, self.env, clear=True), patch('workbot.__main__.load_env'),
+              patch('workbot.__main__.logging.basicConfig'),
+              patch('workbot.__main__.load_config') as config,
+              patch('workbot.__main__.Store') as store,
+              patch('workbot.diagnostics.telegram_call', side_effect=self.rpc),
+              patch('workbot.telegram.telegram_call', return_value={}), redirect_stdout(output)):
             self.assertEqual(main(), 0)
         config.assert_not_called()
         store.assert_not_called()
@@ -226,13 +226,13 @@ class DiagnosticsTests(unittest.TestCase):
 class TelegramResponseTests(unittest.TestCase):
     def test_malformed_api_response_is_sanitized(self):
         for value in [[], {}, {'ok': True}, {'ok': False, 'error_code': TOKEN}]:
-            with self.subTest(value=value), patch('botwork.http.urlopen'), patch('botwork.http.json.load', return_value=value):
+            with self.subTest(value=value), patch('workbot.http.urlopen'), patch('workbot.http.json.load', return_value=value):
                 with self.assertRaises(FetchError) as error:
                     telegram_call(TOKEN, 'getMe', {})
             self.assertNotIn(TOKEN, str(error.exception))
 
     def test_invalid_request_cannot_expose_token(self):
-        with patch('botwork.http.Request', side_effect=ValueError('bad URL ' + TOKEN)):
+        with patch('workbot.http.Request', side_effect=ValueError('bad URL ' + TOKEN)):
             with self.assertRaises(FetchError) as error:
                 telegram_call(TOKEN, 'getMe', {})
         self.assertNotIn(TOKEN, str(error.exception))

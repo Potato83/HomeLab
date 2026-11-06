@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 
-from botwork.schedule import allows_scan, parse
+from workbot.schedule import allows_scan, parse
 
 
 class ScheduleTests(unittest.TestCase):

@@ -4,10 +4,10 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from potato_bot import database
-from potato_bot.handlers import pve, pvp
-from potato_bot.services import games
-from potato_bot.services.economy import get_balance
+from chatbot import database
+from chatbot.handlers import pve, pvp
+from chatbot.services import games
+from chatbot.services.economy import get_balance
 
 
 def callback(data, actor=2, message_id=51):

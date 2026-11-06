@@ -5,12 +5,12 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from botwork.config import load_config
-from botwork.profile_matching import combined_collection_filters
-from botwork.reporting import source_views
-from botwork.runner import Monitor
-from botwork.storage import Store
-from botwork.telegram import _group_payload
+from workbot.config import load_config
+from workbot.profile_matching import combined_collection_filters
+from workbot.reporting import source_views
+from workbot.runner import Monitor
+from workbot.storage import Store
+from workbot.telegram import _group_payload
 
 
 class ProfileCollectionTests(unittest.TestCase):
@@ -35,7 +35,7 @@ class ProfileCollectionTests(unittest.TestCase):
         self.assertTrue(filters['events_enabled'])
         self.assertEqual(filters['event_days'], 180)
         self.assertTrue(next(row for row in source_views(self.store, self.monitor.config) if row['source'] == 'ctftime')['enabled'])
-        with patch('botwork.background.BackgroundScan') as factory:
+        with patch('workbot.background.BackgroundScan') as factory:
             self.assertTrue(self.monitor.request_check())
             self.assertEqual(factory.call_args.args[2], ['ctftime'])
 

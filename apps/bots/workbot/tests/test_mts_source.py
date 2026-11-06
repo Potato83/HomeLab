@@ -4,10 +4,10 @@ from pathlib import Path
 import unittest
 from urllib.parse import parse_qs, urlsplit
 
-from botwork.config import load_config
-from botwork.matching import decide
-from botwork.mts_source import collect_mts, parse_mts_detail, parse_mts_page, salary_text
-from botwork.sources import ParseError
+from workbot.config import load_config
+from workbot.matching import decide
+from workbot.mts_source import collect_mts, parse_mts_detail, parse_mts_page, salary_text
+from workbot.sources import ParseError
 
 ROOT = Path(__file__).resolve().parents[1]
 

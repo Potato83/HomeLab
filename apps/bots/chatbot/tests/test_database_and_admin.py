@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from potato_bot.database import connect, init_db, save_user_data
-from potato_bot.services.admin_ops import (
+from chatbot.database import connect, init_db, save_user_data
+from chatbot.services.admin_ops import (
     InvalidConfirmation,
     create_reset_confirmation,
     reset_chat,
 )
-from potato_bot.services.economy import admin_adjust, get_balance
+from chatbot.services.economy import admin_adjust, get_balance
 
 
 def test_reset_deletes_all_chat_data(db_path: Path) -> None:

@@ -1,25 +1,17 @@
 #!/sbin/openrc-run
-description="ServerBot read-only server monitor"
-
-: "${SERVERBOT_HOME:=/opt/serverbot}"
-: "${SERVERBOT_USER:=serverbot}"
-: "${SERVERBOT_GROUP:=${SERVERBOT_USER}}"
-: "${SERVERBOT_LOG_DIR:=/var/log/serverbot}"
-
-command="${SERVERBOT_HOME}/.venv/bin/python"
-command_args="-m serverbot.main"
-command_user="${SERVERBOT_USER}:${SERVERBOT_GROUP}"
 supervisor="supervise-daemon"
+command="${uv_path:-/usr/bin/uv}"
+command_args="run --locked --no-sync --no-dev bot"
+command_user="serverbot:serverbot"
+directory="/srv/bots/serverbot"
 respawn_delay=10
 respawn_max=10
 respawn_period=300
 retry="TERM/30/KILL/5"
-supervise_daemon_args="--env PYTHONUNBUFFERED=1 --env PYTHONDONTWRITEBYTECODE=1"
-directory="${SERVERBOT_HOME}"
-output_log="${SERVERBOT_LOG_DIR}/serverbot.log"
-error_log="${SERVERBOT_LOG_DIR}/serverbot-error.log"
-
+supervise_daemon_args="--env PYTHONUNBUFFERED=1 --env PYTHONDONTWRITEBYTECODE=1 --env UV_NO_CACHE=1"
+output_log="/var/log/serverbot/serverbot.log"
+error_log="/var/log/serverbot/serverbot-error.log"
 depend() {
     need net
-    after firewall
+    after nftables sing-box
 }

@@ -1,0 +1,17 @@
+#!/sbin/openrc-run
+supervisor="supervise-daemon"
+command="${uv_path:-/usr/bin/uv}"
+command_args="run --locked --no-sync --no-dev bot"
+command_user="workbot:workbot"
+directory="/srv/bots/workbot"
+respawn_delay=10
+respawn_max=10
+respawn_period=300
+retry="TERM/90/KILL/5"
+supervise_daemon_args="--env PYTHONUNBUFFERED=1 --env PYTHONDONTWRITEBYTECODE=1 --env UV_NO_CACHE=1"
+output_log="/var/log/workbot/workbot.log"
+error_log="/var/log/workbot/workbot-error.log"
+depend() {
+    need net
+    after nftables sing-box
+}

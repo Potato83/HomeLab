@@ -7,13 +7,13 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from botwork.__main__ import main
-from botwork.bookmarks import BookmarkCatalog, bookmark_id
-from botwork.http import FetchError
-from botwork.maintenance import backup_database
-from botwork.sites import handle_sites, filter_sites, sites_messages
-from botwork.storage import Store
-from botwork.telegram import Telegram
+from workbot.__main__ import main
+from workbot.bookmarks import BookmarkCatalog, bookmark_id
+from workbot.http import FetchError
+from workbot.maintenance import backup_database
+from workbot.sites import handle_sites, filter_sites, sites_messages
+from workbot.storage import Store
+from workbot.telegram import Telegram
 
 BASE = [{'title': 'Карьера', 'items': [
     {'name': 'PT Start', 'url': 'https://pt-start.ru/', 'note': 'Стажировки ИБ'},
@@ -27,7 +27,7 @@ class BookmarkTests(unittest.TestCase):
         self.path = str(Path(self.temp.name) / 'db.sqlite3')
         self.json_path = Path(self.temp.name) / 'sites.json'
         self.json_path.write_text(json.dumps(BASE, ensure_ascii=False))
-        self.env = patch.dict('os.environ', {'BOTWORK_SITES': str(self.json_path)})
+        self.env = patch.dict('os.environ', {'WORKBOT_SITES': str(self.json_path)})
         self.env.start()
         self.store = Store(self.path)
         self.catalog = BookmarkCatalog(self.store)
@@ -226,10 +226,10 @@ class BookmarkTests(unittest.TestCase):
     def test_cli_saved_search_and_export_without_telegram(self):
         self.execute('/site_add', 'https://example.com Работа')
         output = StringIO()
-        with patch.dict('os.environ', {'BOTWORK_DB': self.path}), \
-             patch('sys.argv', ['botwork', 'sites', '--saved', '--query', 'example.com', '--json']), \
-             patch('botwork.__main__.logging.basicConfig'), \
-             patch('botwork.__main__.Telegram') as telegram, redirect_stdout(output):
+        with patch.dict('os.environ', {'WORKBOT_DB': self.path}), \
+             patch('sys.argv', ['workbot', 'sites', '--saved', '--query', 'example.com', '--json']), \
+             patch('workbot.__main__.logging.basicConfig'), \
+             patch('workbot.__main__.Telegram') as telegram, redirect_stdout(output):
             self.assertEqual(main(), 0)
             result = json.loads(output.getvalue())
             self.assertEqual(result[0]['items'][0]['url'], 'https://example.com')

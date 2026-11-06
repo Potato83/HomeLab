@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from potato_bot import middlewares
-from potato_bot.middlewares import AntiSpamMiddleware
+from chatbot import middlewares
+from chatbot.middlewares import AntiSpamMiddleware
 
 
 @pytest.mark.asyncio

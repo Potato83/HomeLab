@@ -6,14 +6,14 @@ import unittest
 from unittest.mock import Mock
 from urllib.parse import parse_qs, urlsplit
 
-from botwork.config import load_config
-from botwork.matching import decide
-from botwork.runner import Monitor
-from botwork.sber_source import (collect_sber, parse_dictionary, parse_publications,
+from workbot.config import load_config
+from workbot.matching import decide
+from workbot.runner import Monitor
+from workbot.sber_source import (collect_sber, parse_dictionary, parse_publications,
     public_slug, salary_text, work_conditions)
-from botwork.service import scan
-from botwork.sources import ParseError
-from botwork.storage import Store
+from workbot.service import scan
+from workbot.sources import ParseError
+from workbot.storage import Store
 
 ROOT = Path(__file__).resolve().parents[1]
 CATEGORY = 'Информационные технологии:Специалист по информационной безопасности'

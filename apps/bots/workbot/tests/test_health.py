@@ -8,14 +8,14 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from botwork.config import load_config
-from botwork.health import deliver_health, notifications
-from botwork.http import FetchError
-from botwork.matching import decide
-from botwork.models import Vacancy
-from botwork.reporting import source_views, sources_text, status_text
-from botwork.runner import Monitor
-from botwork.storage import Store
+from workbot.config import load_config
+from workbot.health import deliver_health, notifications
+from workbot.http import FetchError
+from workbot.matching import decide
+from workbot.models import Vacancy
+from workbot.reporting import source_views, sources_text, status_text
+from workbot.runner import Monitor
+from workbot.storage import Store
 
 ROOT = Path(__file__).resolve().parents[1]
 START = datetime(2026, 10, 28, 12, 0, tzinfo=timezone.utc)
@@ -35,7 +35,7 @@ class HealthFixture:
         self.tmp.cleanup()
 
     def fail(self, seconds=0, source='mts', error='HTTP 503'):
-        with patch('botwork.storage.now', return_value=(START + timedelta(seconds=seconds)).isoformat()):
+        with patch('workbot.storage.now', return_value=(START + timedelta(seconds=seconds)).isoformat()):
             self.store.source_error(source, error)
 
     def success(self, seconds=0, source='mts', include_vacancy=False):
@@ -43,7 +43,7 @@ class HealthFixture:
         if include_vacancy:
             v = Vacancy(source, '1', 'Junior SOC', 'Компания', 'https://example.org/1', work_format='remote')
             rows = [(v, decide(v, self.config['filters']))]
-        with patch('botwork.storage.now', return_value=(START + timedelta(seconds=seconds)).isoformat()):
+        with patch('workbot.storage.now', return_value=(START + timedelta(seconds=seconds)).isoformat()):
             self.store.save_snapshot(source, rows)
 
     def three_failures(self):
@@ -220,7 +220,7 @@ class RunnerTests(HealthFixture, unittest.TestCase):
     def test_delivery_failure_does_not_rescan_sites(self):
         monitor = self.make_monitor()
         self.telegram.send.side_effect = FetchError('offline')
-        with patch('botwork.runner.scan', side_effect=self.fake_scan) as scan:
+        with patch('workbot.runner.scan', side_effect=self.fake_scan) as scan:
             with self.assertRaises(FetchError):
                 monitor.run_due()
             self.assertEqual(monitor.next_scan, 3700)
@@ -235,7 +235,7 @@ class RunnerTests(HealthFixture, unittest.TestCase):
             self.assertIn('offline', status_text(self.store, self.config))
 
     def test_source_checks_remain_due_despite_polling_errors(self):
-        from botwork.__main__ import main
+        from workbot.__main__ import main
         self.make_monitor()
         handlers = {}
         calls = 0
@@ -258,17 +258,17 @@ class RunnerTests(HealthFixture, unittest.TestCase):
             job = Mock(revision=revision, due=due)
             job.poll.return_value = ({'sources': {'mts': {'error': None}}, 'vacancies': []}, None)
             return job
-        with (patch('sys.argv', ['botwork', 'run']),
-              patch.dict(os.environ, {'BOTWORK_DB': self.path}),
-              patch('botwork.__main__.load_env'),
-              patch('botwork.__main__.load_config', return_value=self.config),
-              patch('botwork.__main__.Store', return_value=self.store),
-              patch('botwork.__main__.Telegram', return_value=self.telegram),
-              patch('botwork.__main__.Monitor', side_effect=factory),
-              patch('botwork.__main__.logging.basicConfig'),
-              patch('botwork.__main__.signal.signal', side_effect=register),
-              patch('botwork.__main__.time.sleep'),
-              patch('botwork.background.BackgroundScan', side_effect=finished_job) as jobs):
+        with (patch('sys.argv', ['workbot', 'run']),
+              patch.dict(os.environ, {'WORKBOT_DB': self.path}),
+              patch('workbot.__main__.load_env'),
+              patch('workbot.__main__.load_config', return_value=self.config),
+              patch('workbot.__main__.Store', return_value=self.store),
+              patch('workbot.__main__.Telegram', return_value=self.telegram),
+              patch('workbot.__main__.Monitor', side_effect=factory),
+              patch('workbot.__main__.logging.basicConfig'),
+              patch('workbot.__main__.signal.signal', side_effect=register),
+              patch('workbot.__main__.time.sleep'),
+              patch('workbot.background.BackgroundScan', side_effect=finished_job) as jobs):
             self.assertEqual(main(), 0)
             self.assertEqual(jobs.call_count, 2)
 
@@ -285,7 +285,7 @@ class RunnerTests(HealthFixture, unittest.TestCase):
     def test_alert_failure_does_not_block_vacancy_attempt(self):
         monitor = self.make_monitor()
         self.success(include_vacancy=True)
-        with patch('botwork.runner.deliver_health', side_effect=FetchError('alert rejected')):
+        with patch('workbot.runner.deliver_health', side_effect=FetchError('alert rejected')):
             with self.assertRaises(FetchError):
                 monitor.dispatch_pending()
         self.assertEqual(self.store.pending(['mts'], 20), [])

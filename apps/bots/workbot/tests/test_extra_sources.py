@@ -4,14 +4,14 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from botwork.config import load_config
-from botwork.matching import decide
-from botwork.models import Vacancy
-from botwork.service import scan
-from botwork.sources import (ParseError, collect, croc_security_count, experience_level,
+from workbot.config import load_config
+from workbot.matching import decide
+from workbot.models import Vacancy
+from workbot.service import scan
+from workbot.sources import (ParseError, collect, croc_security_count, experience_level,
     parse_bastion_detail, parse_bastion_list, parse_croc_detail, parse_croc_list)
-from botwork.storage import Store
-from botwork.telegram import format_message
+from workbot.storage import Store
+from workbot.telegram import format_message
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -141,7 +141,7 @@ class ExtraSourceTests(unittest.TestCase):
         for name in config['sources']:
             config['sources'][name]['enabled'] = name in ('bastion', 'croc')
         v = Vacancy('croc', '1', 'Junior SOC', 'КРОК', 'https://careers.croc.ru/vacancies/1/', work_format='remote')
-        with patch('botwork.service.collect', side_effect=[ParseError('неполный список'), [v]]):
+        with patch('workbot.service.collect', side_effect=[ParseError('неполный список'), [v]]):
             result = scan(config)
         self.assertIsNotNone(result['sources']['bastion']['error'])
         self.assertEqual(result['sources']['croc']['matched'], 1)

@@ -1,6 +1,6 @@
 import logging
 
-from potato_bot.logging_setup import SafeFormatter
+from chatbot.logging_setup import SafeFormatter
 
 
 def test_environment_token_and_proxy_are_redacted(monkeypatch):

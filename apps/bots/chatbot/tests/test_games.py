@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from potato_bot.services.economy import get_balance, reconcile_account
-from potato_bot.services.games import (
+from chatbot.services.economy import get_balance, reconcile_account
+from chatbot.services.games import (
     GameAlreadyFinished,
     GameExpired,
     MoveAlreadyMade,

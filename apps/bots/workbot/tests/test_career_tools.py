@@ -7,18 +7,18 @@ import tempfile
 import unittest
 from unittest.mock import Mock
 
-from botwork.career import application_text, deliver_reminders, execute_career, export_csv
-from botwork.config import load_config
-from botwork.croc_internships import parse_programmes
-from botwork.http import FetchError
-from botwork.jobs import handle_jobs, jobs_page, parse_search, search_jobs
-from botwork.models import Decision, Vacancy
-from botwork.pipeline import track_text, vacancy_ref
-from botwork.runner import Monitor
-from botwork.sources import ParseError
-from botwork.storage import Store
-from botwork.telegram import Telegram
-from botwork.workflows import begin_input, handle_application_buttons, handle_input, handle_profile_buttons, profile_keyboard
+from workbot.career import application_text, deliver_reminders, execute_career, export_csv
+from workbot.config import load_config
+from workbot.croc_internships import parse_programmes
+from workbot.http import FetchError
+from workbot.jobs import handle_jobs, jobs_page, parse_search, search_jobs
+from workbot.models import Decision, Vacancy
+from workbot.pipeline import track_text, vacancy_ref
+from workbot.runner import Monitor
+from workbot.sources import ParseError
+from workbot.storage import Store
+from workbot.telegram import Telegram
+from workbot.workflows import begin_input, handle_application_buttons, handle_input, handle_profile_buttons, profile_keyboard
 
 
 class CareerToolsTests(unittest.TestCase):
@@ -157,7 +157,7 @@ class CareerToolsTests(unittest.TestCase):
             parse_programmes(html.replace('cybersecurity-ru', 'different'))
 
     def test_backup_roundtrip_preserves_new_application_data(self):
-        from botwork.maintenance import backup_database
+        from workbot.maintenance import backup_database
         execute_career(self.store, '/note', self.ref + ' Сохранить заметку', 1)
         execute_career(self.store, '/remind', self.ref + ' 2099-01-01 18:00 Ответ', 2)
         backup = str(Path(self.tmp.name) / 'backup.db')

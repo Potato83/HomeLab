@@ -1,9 +1,9 @@
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 
-from potato_bot.database import init_db
-from potato_bot.services.economy import reconcile_account
-from potato_bot.services.loans import (
+from chatbot.database import init_db
+from chatbot.services.economy import reconcile_account
+from chatbot.services.loans import (
     LOAN_COOLDOWN_SECONDS,
     LOAN_DUE_AMOUNT,
     LOAN_PRINCIPAL,

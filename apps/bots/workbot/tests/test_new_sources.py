@@ -2,10 +2,10 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import unittest
-from botwork.config import load_config
-from botwork.new_sources import habr_page,collect_habr,yandex_page,collect_yandex_jobs
-from botwork.matching import decide
-from botwork.sources import ParseError
+from workbot.config import load_config
+from workbot.new_sources import habr_page,collect_habr,yandex_page,collect_yandex_jobs
+from workbot.matching import decide
+from workbot.sources import ParseError
 
 ROOT=Path(__file__).resolve().parents[1]
 

@@ -6,15 +6,15 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from botwork.config import load_config, validate_config
-from botwork.event_details import enrich_terms
-from botwork.events import decide_event, collect_ctftime, collect_ods, parse_ctftime
-from botwork.http import FetchError
-from botwork.models import Vacancy
-from botwork.runner import Monitor
-from botwork.settings import Settings, effective_config
-from botwork.storage import Store
-from botwork.telegram import format_message, deliver_digest
+from workbot.config import load_config, validate_config
+from workbot.event_details import enrich_terms
+from workbot.events import decide_event, collect_ctftime, collect_ods, parse_ctftime
+from workbot.http import FetchError
+from workbot.models import Vacancy
+from workbot.runner import Monitor
+from workbot.settings import Settings, effective_config
+from workbot.storage import Store
+from workbot.telegram import format_message, deliver_digest
 from tests.test_events import NOW, event, ctf, ods
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -24,7 +24,7 @@ class EventUpdateTests(unittest.TestCase):
         self.config=load_config(str(ROOT/'config.toml'));self.rules=self.config['filters']
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.path=str(Path(self.temp.name)/'db');self.store=Store(self.path);self.addCleanup(lambda:self.store.close())
-        self.clock=patch('botwork.events.event_now',return_value=NOW);self.clock.start();self.addCleanup(self.clock.stop)
+        self.clock=patch('workbot.events.event_now',return_value=NOW);self.clock.start();self.addCleanup(self.clock.stop)
 
     def save(self,v):self.store.save_snapshot(v.source,[(v,decide_event(v,self.rules))],rules=self.rules)
     def pending(self,source='ctftime'):return self.store.pending([source],20)
@@ -102,7 +102,7 @@ class EventUpdateTests(unittest.TestCase):
         self.store.refilter(self.config);self.assertEqual(len(self.pending()),1)
         c=deepcopy(self.config);c['monitor']['paused']=True;telegram=Mock()
         self.assertEqual(Monitor(c,self.store,telegram,delivery_delay=0).dispatch_pending()['vacancies'],0)
-        with patch('botwork.events.event_now',return_value=NOW+timedelta(days=5)):
+        with patch('workbot.events.event_now',return_value=NOW+timedelta(days=5)):
             self.store.refilter(self.config);self.assertEqual(self.pending(),[]);self.assertEqual(self.store.watched_events('ctftime'),[])
 
     def test_legacy_event_payload_gets_watch_dates_without_resending(self):
@@ -161,15 +161,15 @@ class EventUpdateTests(unittest.TestCase):
 
     def test_background_snapshot_includes_watch_data_without_sqlite_in_worker(self):
         self.shown();monitor=Monitor(self.config,self.store,Mock(),delivery_delay=0)
-        with patch('botwork.background.BackgroundScan') as worker:
+        with patch('workbot.background.BackgroundScan') as worker:
             self.assertTrue(monitor.request_check())
             snapshot=worker.call_args.args[0];self.assertEqual(len(snapshot['sources']['ctftime']['_watched_events']),1)
             self.assertNotIn('_watched_events',monitor.config['sources']['ctftime'])
             monitor.close()
 
     def test_watch_failure_status_then_positive_cancellation_through_full_scan(self):
-        from botwork.service import scan
-        from botwork.reporting import status_text
+        from workbot.service import scan
+        from workbot.reporting import status_text
         self.shown();c=deepcopy(self.config)
         for name,source in c['sources'].items():source['enabled']=name=='ctftime'
         client=Mock();client.get.side_effect=['[]',FetchError('HTTP 404')]

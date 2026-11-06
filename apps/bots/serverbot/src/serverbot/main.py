@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import logging
 from pathlib import Path
@@ -28,7 +29,7 @@ BOT_COMMANDS = [
 
 async def main() -> None:
     # Read secrets and user IDs from .env, monitoring checks from config.toml
-    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+    load_dotenv(Path.cwd() / ".env")
     setup_logging()
     settings = load_env_config()
     config = load_config()
@@ -65,5 +66,10 @@ async def main() -> None:
             await asyncio.sleep(0)
 
 
-if __name__ == "__main__":
+def cli() -> None:
+    argparse.ArgumentParser(description="serverbot").parse_args()
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    cli()

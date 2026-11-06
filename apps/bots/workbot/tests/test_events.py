@@ -6,13 +6,13 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 from urllib.parse import parse_qs,urlsplit
-from botwork.config import load_config
-from botwork.events import decide_event, parse_ctftime, collect_ctftime, collect_ods
-from botwork.models import Vacancy
-from botwork.sources import ParseError
-from botwork.storage import Store
-from botwork.telegram import format_message, deliver_digest
-from botwork.runner import Monitor
+from workbot.config import load_config
+from workbot.events import decide_event, parse_ctftime, collect_ctftime, collect_ods
+from workbot.models import Vacancy
+from workbot.sources import ParseError
+from workbot.storage import Store
+from workbot.telegram import format_message, deliver_digest
+from workbot.runner import Monitor
 
 ROOT=Path(__file__).resolve().parents[1]
 NOW=datetime(2030,1,1,tzinfo=timezone.utc)
@@ -32,7 +32,7 @@ def event(**kwargs):
 class EventTests(unittest.TestCase):
     def setUp(self):
         self.config=load_config(str(ROOT/'config.toml'));self.rules=self.config['filters']
-        self.clock=patch('botwork.events.event_now',return_value=NOW);self.clock.start();self.addCleanup(self.clock.stop)
+        self.clock=patch('workbot.events.event_now',return_value=NOW);self.clock.start();self.addCleanup(self.clock.stop)
 
     def test_event_does_not_require_junior_but_does_require_direction(self):
         self.assertTrue(decide_event(event(),self.rules).matched)
@@ -116,7 +116,7 @@ class EventTests(unittest.TestCase):
             self.assertIn('Дедлайн регистрации',telegram.send.call_args.args[0]);store.close()
             store=Store(str(Path(tmp)/'db'));v.external_id='2';store.save_snapshot('ctftime',[(v,decide_event(v,self.rules))])
             monitor=Monitor(self.config,store,telegram,delivery_delay=0)
-            with patch('botwork.events.event_now',return_value=NOW+timedelta(days=4)):
+            with patch('workbot.events.event_now',return_value=NOW+timedelta(days=4)):
                 self.assertEqual(monitor.dispatch_pending()['vacancies'],0)
             store.close()
 

@@ -3,13 +3,13 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from botwork.config import load_config, validate_config
-from botwork.models import Vacancy
-from botwork.matching import decide
-from botwork.directions import source_settings, collection_rules
-from botwork.settings import Settings, effective_config
-from botwork.storage import Store
-from botwork.new_sources import collect_habr, habr_page
+from workbot.config import load_config, validate_config
+from workbot.models import Vacancy
+from workbot.matching import decide
+from workbot.directions import source_settings, collection_rules
+from workbot.settings import Settings, effective_config
+from workbot.storage import Store
+from workbot.new_sources import collect_habr, habr_page
 from tests.test_new_sources import habr_html, habr_row
 import json
 
@@ -49,7 +49,7 @@ class ProfilesTests(unittest.TestCase):
         self.assertTrue(decide(self.v('Data Engineer intern',categories=categories),self.rules).matched)
 
     def test_sber_russian_fulltext_inflection_does_not_bypass_role_filter(self):
-        from botwork.sber_source import collect_sber
+        from workbot.sber_source import collect_sber
         from tests.test_sber_source import vacancy, page, dictionary, CATEGORIES, EXPERIENCES, SCHEDULES
         class Client:
             def get(self,url):
@@ -62,10 +62,10 @@ class ProfilesTests(unittest.TestCase):
         self.assertEqual(len(rows),1);self.assertFalse(decide(rows[0],rules).matched)
 
     def test_sber_repairs_pagination_only_after_full_unique_count_is_proven(self):
-        from botwork.sber_source import collect_sber
+        from workbot.sber_source import collect_sber
         from tests.test_sber_source import vacancy, page, dictionary, CATEGORIES, EXPERIENCES, SCHEDULES
         from urllib.parse import parse_qs, urlsplit
-        from botwork.sources import ParseError
+        from workbot.sources import ParseError
         class Client:
             rounds=0
             def get(self,url):
@@ -127,32 +127,32 @@ class ProfilesTests(unittest.TestCase):
             data=json.loads(habr_html([habr_row(identifier,title='Junior DevOps',qualification='Junior',divisions=[{'title':'DevOps'}])],page=number,total=2).split('>',1)[1].rsplit('<',1)[0])
             data['search']['query']='DevOps';data['search']['order']='date';data['search']['filters']['s']=[]
             return '<script type="application/json">'+json.dumps(data)+'</script>'
-        from botwork.new_sources import collect_habr_query
+        from workbot.new_sources import collect_habr_query
         class Client:
             def get(self,url):return page(2,2) if 'page=2' in url else page(1,1)
         rows=collect_habr_query({'url':'https://career.habr.com/vacancies/spec/infosec'},Client(),self.rules,'DevOps')
         self.assertEqual(len(rows),2)
-        from botwork.sources import ParseError
+        from workbot.sources import ParseError
         with self.assertRaises(ParseError):habr_page(page(1,1),1,'MLOps')
 
     def test_programmes_do_not_relabel_devops_as_security(self):
-        from botwork.service import scan
-        from botwork.matching import contains
+        from workbot.service import scan
+        from workbot.matching import contains
         recorded={}
         def collect(name,settings,client,rules):
             recorded[name]=rules
             return []
         config=deepcopy(self.config)
         for name,source in config['sources'].items():source['enabled']=name in ('habr','pt_fast_track','pt_start_training','x5_internships')
-        with patch('botwork.service.collect',side_effect=collect):scan(config,client=object())
+        with patch('workbot.service.collect',side_effect=collect):scan(config,client=object())
         self.assertTrue(contains(recorded['habr']['security_patterns'],'Junior DevOps'))
         for name in ('pt_fast_track','pt_start_training','x5_internships'):
             self.assertFalse(contains(recorded[name]['security_patterns'],'Junior DevOps'))
 
     def test_sber_known_category_alias_preserves_id_validation(self):
-        from botwork.sber_source import parse_publications
+        from workbot.sber_source import parse_publications
         from tests.test_sber_source import vacancy, page, EXPERIENCES, SCHEDULES
-        from botwork.sources import ParseError
+        from workbot.sources import ParseError
         categories={'developer':'Информационные технологии:Программист, разработчик'}
         row=vacancy(specializationId='developer',specialization='IT: Разработка',title='Junior DevOps')
         result,_=parse_publications(page([row]),'https://rabota.sber.ru',0,100,categories,EXPERIENCES,SCHEDULES)
@@ -161,9 +161,9 @@ class ProfilesTests(unittest.TestCase):
             with self.assertRaises(ParseError):parse_publications(page([row|changes]),'https://rabota.sber.ru',0,100,categories,EXPERIENCES,SCHEDULES)
 
     def test_sber_unassigned_category_is_usable_only_in_fulltext_search(self):
-        from botwork.sber_source import parse_publications
+        from workbot.sber_source import parse_publications
         from tests.test_sber_source import vacancy, page, EXPERIENCES, SCHEDULES
-        from botwork.sources import ParseError
+        from workbot.sources import ParseError
         row=vacancy(title='Junior Python',specializationId='new-id',specialization=None)
         with self.assertRaises(ParseError):parse_publications(page([row]),'https://rabota.sber.ru',0,100,{},EXPERIENCES,SCHEDULES)
         rows,_=parse_publications(page([row]),'https://rabota.sber.ru',0,100,{},EXPERIENCES,SCHEDULES,allow_unknown_category=True)
@@ -173,7 +173,7 @@ class ProfilesTests(unittest.TestCase):
         with self.assertRaises(ParseError):parse_publications(page([row|{'specialization':'Информационная безопасность'}]),'https://rabota.sber.ru',0,100,{},EXPERIENCES,SCHEDULES,allow_unknown_category=True)
 
     def test_mts_body_search_is_verified_without_using_it_as_a_role(self):
-        from botwork.mts_source import collect_mts
+        from workbot.mts_source import collect_mts
         from tests.test_mts_source import row, page
         class Client:
             calls=[]

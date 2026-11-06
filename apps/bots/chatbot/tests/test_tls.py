@@ -1,7 +1,7 @@
 import aiohttp
 import pytest
 
-from potato_bot.main import ConfigurableAiohttpSession
+from chatbot.main import ConfigurableAiohttpSession
 
 
 def test_tls_verification_is_enabled_by_default():

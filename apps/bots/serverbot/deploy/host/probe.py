@@ -47,11 +47,11 @@ def main():
                 add(key, name, status, detail)
             except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired):
                 add(key, name, 'error', 'Health query failed')
-        for service in ('serverbot','chatbot','botwork','sshd','nftables','libvirtd','sing-box','chronyd','crond','omniroute','nginx'):
+        for service in ('serverbot','chatbot','workbot','sshd','nftables','libvirtd','sing-box','chronyd','crond','omniroute','nginx'):
             check('service:'+service, service, lambda s=service: (
                 ('ok', 'OpenRC running') if run(['/sbin/rc-service', s, 'status'])[0] == 0
                 else ('critical', 'OpenRC not running')))
-        for user, module in (('serverbot','serverbot.main'),('chatbot','potato_bot.main'),('botwork','botwork')):
+        for user, module in (('serverbot','serverbot.main'),('chatbot','chatbot.main'),('workbot','workbot')):
             def process(user=user, module=module):
                 import pwd
                 uid = pwd.getpwnam(user).pw_uid
@@ -67,18 +67,18 @@ def main():
                 return ('ok' if matches == 1 else 'critical', f'Expected one app process; found {matches}')
             check('bot:'+user, user+' process', process)
         check('bot:chatbot-db', 'ChatBot database', lambda: ('ok','Database schema ready') if run([
-            '/srv/bots/chatbot/.venv/bin/python','-m','potato_bot.healthcheck'],
+            '/srv/bots/chatbot/.venv/bin/python','-m','chatbot.healthcheck'],
             user='chatbot',cwd='/srv/bots/chatbot')[0] == 0 else ('critical','Database healthcheck failed'))
-        def botwork_db():
+        def workbot_db():
             code, text = run(['/usr/bin/python3','-c',
-                'import sqlite3; c=sqlite3.connect("file:/srv/bots/botwork/data/botwork.sqlite3?mode=ro",uri=True,timeout=3); '
+                'import sqlite3; c=sqlite3.connect("file:/srv/bots/workbot/data/workbot.sqlite3?mode=ro",uri=True,timeout=3); '
                 'print(c.execute("SELECT COUNT(*) FROM source_status WHERE error IS NOT NULL").fetchone()[0]); c.close()'],
-                user='botwork',cwd='/srv/bots/botwork')
+                user='workbot',cwd='/srv/bots/workbot')
             if code:
                 return 'critical','Database query failed'
             errors = int(text.strip())
             return ('warning' if errors else 'ok',f'Source errors: {errors}; database readable')
-        check('bot:botwork-db','BotWork sources',botwork_db)
+        check('bot:workbot-db','WorkBot sources',workbot_db)
         check('vm:kali', 'Kali VM', lambda: ('ok','running') if run([
             '/usr/bin/virsh','-c','qemu:///system','domstate','kali-ctf'])[1].strip() == 'running'
             else ('critical','VM is not running'))

@@ -1,7 +1,7 @@
 import pytest
 import datetime
-from potato_bot.handlers.helpers import get_moscow_today, parse_bet
-from potato_bot.services.games import get_card_value
+from chatbot.handlers.helpers import get_moscow_today, parse_bet
+from chatbot.services.games import get_card_value
 
 def test_blackjack_logic():
     # Простые карты

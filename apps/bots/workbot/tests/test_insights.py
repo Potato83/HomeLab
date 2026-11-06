@@ -1,8 +1,8 @@
 from unittest import TestCase
 from unittest.mock import Mock
 
-from botwork.insights import common_words, handle_insights, insights_text
-from botwork.telegram import Telegram
+from workbot.insights import common_words, handle_insights, insights_text
+from workbot.telegram import Telegram
 
 
 class InsightsTests(TestCase):

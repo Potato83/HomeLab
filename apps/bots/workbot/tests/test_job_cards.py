@@ -5,17 +5,17 @@ import tempfile
 import unittest
 from unittest.mock import Mock
 
-from botwork.config import load_config
-from botwork.http import FetchError
-from botwork.job_cards import description_pages, handle_job_card
-from botwork.jobs import parse_search, search_jobs
-from botwork.matching import decide
-from botwork.models import Vacancy
-from botwork.pipeline import vacancy_ref
-from botwork.runner import Monitor
-from botwork.sites import length
-from botwork.storage import Store
-from botwork.telegram import Telegram
+from workbot.config import load_config
+from workbot.http import FetchError
+from workbot.job_cards import description_pages, handle_job_card
+from workbot.jobs import parse_search, search_jobs
+from workbot.matching import decide
+from workbot.models import Vacancy
+from workbot.pipeline import vacancy_ref
+from workbot.runner import Monitor
+from workbot.sites import length
+from workbot.storage import Store
+from workbot.telegram import Telegram
 
 
 class JobCardTests(unittest.TestCase):

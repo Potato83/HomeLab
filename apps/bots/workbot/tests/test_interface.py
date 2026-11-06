@@ -3,17 +3,17 @@ import tempfile
 import unittest
 from unittest.mock import Mock
 
-from botwork.config import load_config
-from botwork.interface import handle_controls, panel_token, settings_panel
-from botwork.runner import Monitor
-from botwork.telegram import Telegram
+from workbot.config import load_config
+from workbot.interface import handle_controls, panel_token, settings_panel
+from workbot.runner import Monitor
+from workbot.telegram import Telegram
 
 
 class InterfaceTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        from botwork.storage import Store
+        from workbot.storage import Store
         self.store = Store(str(Path(self.tmp.name) / 'db'))
         self.addCleanup(self.store.close)
         self.telegram = Telegram('dummy', '123')

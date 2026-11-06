@@ -14,7 +14,7 @@ from serverbot.state import threshold_status, low_threshold_status
 
 ICONS = {'ok':'🟢','warning':'🟡','critical':'🔴','error':'🔴'}
 RANK = {'ok':0,'warning':1,'critical':2,'error':3}
-LABELS = {'system:updates':'Обновления','bot:botwork-db':'Источники BotWork',
+LABELS = {'system:updates':'Обновления','bot:workbot-db':'Источники WorkBot',
           'bot:chatbot-db':'База ChatBot','host:collector':'Сбор показателей',
           'gateway:health':'OmniRoute API','network:dns':'DNS','network:https':'Интернет','time:ntp':'Время','disk:smart':'SSD SMART'}
 
@@ -24,7 +24,7 @@ def short_detail(key, detail):
         match = re.search(r'(\d+) package updates pending', detail)
         if match:
             return f'Доступно пакетов: {match[1]}'
-    if key == 'bot:botwork-db':
+    if key == 'bot:workbot-db':
         match = re.search(r'Source errors: (\d+)', detail)
         if match:
             return f'Ошибок источников: {match[1]}'
@@ -102,10 +102,10 @@ async def build_mobile_status(config, http_session):
         rows=[r for r in host if r.key in keys]
         return ICONS[max((r.status for r in rows),key=RANK.get)] if len(rows)==len(keys) else '⚪'
     blocks=[]
-    for user,title in (('serverbot','ServerBot'),('chatbot','ChatBot'),('botwork','BotWork')):
+    for user,title in (('serverbot','ServerBot'),('chatbot','ChatBot'),('workbot','WorkBot')):
         keys=['service:'+user,'bot:'+user]
         if user=='chatbot': keys.append('bot:chatbot-db')
-        if user=='botwork': keys.append('bot:botwork-db')
+        if user=='workbot': keys.append('bot:workbot-db')
         blocks.append(state(keys)+' '+title)
     now=datetime.now(ZoneInfo('Europe/Moscow')).strftime('%H:%M МСК')
     heading = 'Всё в порядке' if not problems else f'Требует внимания: {len(problems)}'
@@ -143,7 +143,7 @@ def host_description(row):
         if match: return f'Занято {match[1]}%'
     if row.key.startswith('service:'):
         return 'Служба запущена' if row.status=='ok' else 'Служба остановлена'
-    if row.key in {'bot:serverbot','bot:chatbot','bot:botwork'}:
+    if row.key in {'bot:serverbot','bot:chatbot','bot:workbot'}:
         match=re.search(r'found (\d+)',detail)
         return f'Процессов: {match[1]}' if match else detail[:160]
     translations={'Database schema ready':'Схема базы корректна',
@@ -207,12 +207,12 @@ async def build_detail_page(config, http_session, page):
             lines.append(f'Заряд · {battery.percentage}%' if battery.percentage is not None else '⚪ Заряд · нет данных')
         lines.append(block('memory:swap','Swap'))
     elif page=='bots':
-        for name,title in [('serverbot','ServerBot'),('chatbot','ChatBot'),('botwork','BotWork')]:
+        for name,title in [('serverbot','ServerBot'),('chatbot','ChatBot'),('workbot','WorkBot')]:
             lines.append('\n<b>'+title+'</b>')
             for key,label in [('service:'+name,'Служба'),('bot:'+name,'Приложение')]:
                 row=indexed.get(key)
                 lines.append(f'{ICONS[row.status] if row else "⚪"} {escape(host_description(row))}')
-            extra='bot:chatbot-db' if name=='chatbot' else 'bot:botwork-db' if name=='botwork' else None
+            extra='bot:chatbot-db' if name=='chatbot' else 'bot:workbot-db' if name=='workbot' else None
             if extra:
                 row=indexed.get(extra)
                 lines.append(f'{ICONS[row.status] if row else "⚪"} {escape(host_description(row))}')

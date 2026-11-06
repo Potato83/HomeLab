@@ -14,12 +14,12 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from botwork.__main__ import main
-from botwork.config import load_config
-from botwork.locking import InstanceRunning, instance_lock
-from botwork.maintenance import BackupError, backup_database
-from botwork.models import Vacancy, Decision
-from botwork.storage import Store
+from workbot.__main__ import main
+from workbot.config import load_config
+from workbot.locking import InstanceRunning, instance_lock
+from workbot.maintenance import BackupError, backup_database
+from workbot.models import Vacancy, Decision
+from workbot.storage import Store
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -36,8 +36,8 @@ class Fixture:
         self.store.set_state('telegram_offset', 42)
         self.store.source_error('croc', 'Тестовый HTTP 503')
         self.target = self.directory / 'backups' / 'copy.sqlite3'
-        self.env = {'BOTWORK_DB': str(self.path), 'BOTWORK_CONFIG': str(ROOT / 'config.toml'),
-                    'TELEGRAM_BOT_TOKEN': 'test-token', 'TELEGRAM_CHAT_ID': '42'}
+        self.env = {'WORKBOT_DB': str(self.path), 'WORKBOT_CONFIG': str(ROOT / 'config.toml'),
+                    'BOT_TOKEN': 'test-token', 'OWNER_ID': '42'}
 
     def tearDown(self):
         self.store.close()
@@ -125,14 +125,14 @@ class BackupTests(Fixture, unittest.TestCase):
         def raced_link(source, destination):
             Path(destination).write_bytes(b'created concurrently')
             return real_link(source, destination)
-        with patch('botwork.maintenance.os.link', side_effect=raced_link):
+        with patch('workbot.maintenance.os.link', side_effect=raced_link):
             with self.assertRaises(FileExistsError):
                 backup_database(self.path, self.target)
         self.assertEqual(self.target.read_bytes(), b'created concurrently')
-        self.assertEqual(list(self.target.parent.glob('.botwork-backup-*')), [])
+        self.assertEqual(list(self.target.parent.glob('.workbot-backup-*')), [])
 
     def test_timeout_cleans_temporary_files(self):
-        with patch('botwork.maintenance.time.monotonic', side_effect=[0, 31, 32]):
+        with patch('workbot.maintenance.time.monotonic', side_effect=[0, 31, 32]):
             with self.assertRaises(BackupError):
                 backup_database(self.path, self.target)
         self.assertFalse(self.target.exists())
@@ -140,7 +140,7 @@ class BackupTests(Fixture, unittest.TestCase):
         self.assertEqual(self.store.get_state('telegram_offset'), '42')
 
     def test_publish_error_leaves_source_and_destination_intact(self):
-        with patch('botwork.maintenance.os.link', side_effect=OSError('filesystem refused publication')):
+        with patch('workbot.maintenance.os.link', side_effect=OSError('filesystem refused publication')):
             with self.assertRaises(OSError):
                 backup_database(self.path, self.target)
         self.assertFalse(self.target.exists())
@@ -148,12 +148,12 @@ class BackupTests(Fixture, unittest.TestCase):
 
     def test_cli_backup_needs_neither_telegram_nor_source_configuration(self):
         output = io.StringIO()
-        with (patch('sys.argv', ['botwork', 'backup', '--output', str(self.target), '--json']),
-              patch.dict(os.environ, {'BOTWORK_DB': str(self.path)}, clear=True),
-              patch('botwork.__main__.load_env'), patch('botwork.__main__.logging.basicConfig'),
-              patch('botwork.__main__.load_config') as config,
-              patch('botwork.__main__.Store') as store,
-              patch('botwork.__main__.Telegram') as telegram, redirect_stdout(output)):
+        with (patch('sys.argv', ['workbot', 'backup', '--output', str(self.target), '--json']),
+              patch.dict(os.environ, {'WORKBOT_DB': str(self.path)}, clear=True),
+              patch('workbot.__main__.load_env'), patch('workbot.__main__.logging.basicConfig'),
+              patch('workbot.__main__.load_config') as config,
+              patch('workbot.__main__.Store') as store,
+              patch('workbot.__main__.Telegram') as telegram, redirect_stdout(output)):
             self.assertEqual(main(), 0)
         config.assert_not_called()
         store.assert_not_called()
@@ -189,7 +189,7 @@ class LockTests(Fixture, unittest.TestCase):
             pass
 
     def test_independent_process_and_abrupt_exit(self):
-        script = ('import sys\nfrom botwork.locking import instance_lock\n'
+        script = ('import sys\nfrom workbot.locking import instance_lock\n'
                   'with instance_lock(sys.argv[1]):\n print("locked", flush=True)\n sys.stdin.readline()\n')
         child = subprocess.Popen([sys.executable, '-u', '-c', script, str(self.path)], cwd=ROOT,
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -213,9 +213,9 @@ class LockTests(Fixture, unittest.TestCase):
     def test_run_and_once_are_rejected_before_store_or_network(self):
         for command in ['run', 'once']:
             with self.subTest(command=command), instance_lock(self.path):
-                with (patch('sys.argv', ['botwork', command]), patch.dict(os.environ, self.env, clear=True),
-                      patch('botwork.__main__.load_env'), patch('botwork.__main__.logging.basicConfig'),
-                      patch('botwork.__main__.Store') as store, patch('botwork.__main__.Monitor') as monitor):
+                with (patch('sys.argv', ['workbot', command]), patch.dict(os.environ, self.env, clear=True),
+                      patch('workbot.__main__.load_env'), patch('workbot.__main__.logging.basicConfig'),
+                      patch('workbot.__main__.Store') as store, patch('workbot.__main__.Monitor') as monitor):
                     with self.assertRaises(InstanceRunning):
                         main()
                 store.assert_not_called()
@@ -223,17 +223,17 @@ class LockTests(Fixture, unittest.TestCase):
 
     def test_chat_id_cannot_compete_with_running_bot(self):
         with instance_lock(self.path):
-            with (patch('sys.argv', ['botwork', 'chat-id']), patch.dict(os.environ, self.env, clear=True),
-                  patch('botwork.__main__.load_env'), patch('botwork.__main__.logging.basicConfig'),
-                  patch('botwork.__main__.telegram_call') as rpc):
+            with (patch('sys.argv', ['workbot', 'chat-id']), patch.dict(os.environ, self.env, clear=True),
+                  patch('workbot.__main__.load_env'), patch('workbot.__main__.logging.basicConfig'),
+                  patch('workbot.__main__.telegram_call') as rpc):
                 with self.assertRaises(InstanceRunning):
                     main()
             rpc.assert_not_called()
 
     def test_status_still_available_while_instance_is_running(self):
         with instance_lock(self.path):
-            with (patch('sys.argv', ['botwork', 'status', '--json']), patch.dict(os.environ, self.env, clear=True),
-                  patch('botwork.__main__.load_env'), patch('botwork.__main__.logging.basicConfig'),
+            with (patch('sys.argv', ['workbot', 'status', '--json']), patch.dict(os.environ, self.env, clear=True),
+                  patch('workbot.__main__.load_env'), patch('workbot.__main__.logging.basicConfig'),
                   redirect_stdout(io.StringIO())):
                 self.assertEqual(main(), 0)
 
@@ -249,18 +249,18 @@ class LockTests(Fixture, unittest.TestCase):
             handlers[signal.SIGTERM](signal.SIGTERM, None)
             return []
         telegram.updates.side_effect = updates
-        with (patch('sys.argv', ['botwork', 'run']), patch.dict(os.environ, self.env, clear=True),
-              patch('botwork.__main__.load_env'), patch('botwork.__main__.logging.basicConfig'),
-              patch('botwork.__main__.Telegram', return_value=telegram),
-              patch('botwork.__main__.Monitor'), patch('botwork.__main__.signal.signal', side_effect=register)):
+        with (patch('sys.argv', ['workbot', 'run']), patch.dict(os.environ, self.env, clear=True),
+              patch('workbot.__main__.load_env'), patch('workbot.__main__.logging.basicConfig'),
+              patch('workbot.__main__.Telegram', return_value=telegram),
+              patch('workbot.__main__.Monitor'), patch('workbot.__main__.signal.signal', side_effect=register)):
             self.assertEqual(main(), 0)
         with instance_lock(self.path):
             pass
 
     def test_store_failure_releases_instance_lock(self):
-        with (patch('sys.argv', ['botwork', 'run']), patch.dict(os.environ, self.env, clear=True),
-              patch('botwork.__main__.load_env'), patch('botwork.__main__.logging.basicConfig'),
-              patch('botwork.__main__.Store', side_effect=sqlite3.DatabaseError('broken'))):
+        with (patch('sys.argv', ['workbot', 'run']), patch.dict(os.environ, self.env, clear=True),
+              patch('workbot.__main__.load_env'), patch('workbot.__main__.logging.basicConfig'),
+              patch('workbot.__main__.Store', side_effect=sqlite3.DatabaseError('broken'))):
             with self.assertRaises(sqlite3.DatabaseError):
                 main()
         with instance_lock(self.path):

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from potato_bot.services.economy import (
+from chatbot.services.economy import (
     InsufficientFunds,
     admin_adjust,
     find_reconciliation_mismatches,

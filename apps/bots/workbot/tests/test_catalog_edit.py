@@ -8,19 +8,19 @@ import unittest
 from unittest.mock import Mock, patch
 from urllib.error import URLError
 
-from botwork.bookmarks import BookmarkCatalog,bookmark_id
-from botwork.documents import send_json,read_json
-from botwork.sites import handle_sites
-from botwork.storage import Store
-from botwork.telegram import Telegram
-from botwork.http import FetchError
+from workbot.bookmarks import BookmarkCatalog,bookmark_id
+from workbot.documents import send_json,read_json
+from workbot.sites import handle_sites
+from workbot.storage import Store
+from workbot.telegram import Telegram
+from workbot.http import FetchError
 
 BASE=[{'title':'База','items':[{'name':'Работа','url':'https://example.com','note':'Примечание'}, {'name':'Заметка','note':'Локальный путь'}]}]
 
 class CatalogEditTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.path=Path(self.temp.name)/'sites.json'
-        self.path.write_text(json.dumps(BASE));self.env=patch.dict('os.environ',{'BOTWORK_SITES':str(self.path)});self.env.start()
+        self.path.write_text(json.dumps(BASE));self.env=patch.dict('os.environ',{'WORKBOT_SITES':str(self.path)});self.env.start()
         self.store=Store(str(Path(self.temp.name)/'db'));self.repo=BookmarkCatalog(self.store);self.seq=0
     def tearDown(self):self.store.close();self.env.stop();self.temp.cleanup()
     def execute(self,command,args):
@@ -95,7 +95,7 @@ class CatalogEditTests(unittest.TestCase):
         self.assertTrue(handle_sites(telegram,self.store,update));telegram.read_json.assert_called_once()
         update['message']['text']='/site_export'
         handle_sites(telegram,self.store,update);telegram.send_json.assert_called_once()
-        self.assertEqual(telegram.send_json.call_args.args[0],'botwork-sites.json')
+        self.assertEqual(telegram.send_json.call_args.args[0],'workbot-sites.json')
 
     def test_export_only_added_links(self):
         self.execute('/site_add','https://new.example Новая')
@@ -111,19 +111,19 @@ class DocumentTests(unittest.TestCase):
         context=Mock();context.__enter__=Mock(return_value=response);context.__exit__=Mock(return_value=False)
         return context
     def test_get_file_content_bounded_and_path_trusted(self):
-        with patch('botwork.documents.telegram_call',return_value={'file_path':'documents/file_1.json'}),patch('botwork.documents.build_opener') as build:
+        with patch('workbot.documents.telegram_call',return_value={'file_path':'documents/file_1.json'}),patch('workbot.documents.build_opener') as build:
             build.return_value.open.return_value=self.response(b'[]')
             self.assertEqual(read_json('SECRET',{'file_id':'1','file_size':2}),[])
         for path in ['../bad','https://example.com/file','/absolute']:
-            with patch('botwork.documents.telegram_call',return_value={'file_path':path}),self.assertRaises(FetchError):
+            with patch('workbot.documents.telegram_call',return_value={'file_path':path}),self.assertRaises(FetchError):
                 read_json('SECRET',{'file_id':'1','file_size':2})
     def test_document_errors_do_not_expose_token(self):
-        with patch('botwork.documents.build_opener') as build:
+        with patch('workbot.documents.build_opener') as build:
             build.return_value.open.side_effect=URLError('https://api.telegram.org/SECRET')
             with self.assertRaises(FetchError) as error:send_json('SECRET','123','sites.json',[])
             self.assertNotIn('SECRET',str(error.exception))
     def test_upload_sends_json_to_telegram_without_redirects(self):
-        with patch('botwork.documents.build_opener') as build:
+        with patch('workbot.documents.build_opener') as build:
             build.return_value.open.return_value=self.response(b'{"ok":true,"result":{"message_id":7}}')
             self.assertEqual(send_json('SECRET','123','sites.json',[{'name':'Работа'}]),{'message_id':7})
             request=build.return_value.open.call_args.args[0]
@@ -132,7 +132,7 @@ class DocumentTests(unittest.TestCase):
     def test_invalid_size_and_json(self):
         for size in [None,-1,1000001]:
             with self.assertRaises(ValueError):read_json('SECRET',{'file_id':'1','file_size':size})
-        with patch('botwork.documents.telegram_call',return_value={'file_path':'documents/file_1.json'}),patch('botwork.documents.build_opener') as build:
+        with patch('workbot.documents.telegram_call',return_value={'file_path':'documents/file_1.json'}),patch('workbot.documents.build_opener') as build:
             build.return_value.open.return_value=self.response(b'not JSON')
             with self.assertRaises(ValueError):read_json('SECRET',{'file_id':'1','file_size':8})
 

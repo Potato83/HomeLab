@@ -4,14 +4,14 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from botwork.config import load_config
-from botwork.settings import Settings, effective_config, handle_settings
-from botwork.runner import Monitor
-from botwork.models import Vacancy
-from botwork.matching import decide
-from botwork.storage import Store
-from botwork.telegram import Telegram
-from botwork.sites import length
+from workbot.config import load_config
+from workbot.settings import Settings, effective_config, handle_settings
+from workbot.runner import Monitor
+from workbot.models import Vacancy
+from workbot.matching import decide
+from workbot.storage import Store
+from workbot.telegram import Telegram
+from workbot.sites import length
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -117,7 +117,7 @@ class SettingsTests(unittest.TestCase):
     def test_pause_blocks_automatic_scans_and_delivery(self):
         self.command('pause on')
         monitor=Monitor(self.base,self.store,Mock())
-        with patch('botwork.runner.scan') as scan:
+        with patch('workbot.runner.scan') as scan:
             monitor.run_due();scan.assert_not_called()
         self.assertEqual(monitor._dispatch(),{'alerts':0,'vacancies':0})
 
@@ -132,7 +132,7 @@ class SettingsTests(unittest.TestCase):
         def fake(config,store):
             captured.append({name for name,s in config['sources'].items() if s['enabled']})
             return {'sources':{}}
-        with patch('botwork.runner.scan',side_effect=fake):
+        with patch('workbot.runner.scan',side_effect=fake):
             monitor.run_due();clock[0]=160;monitor.run_due()
         self.assertEqual(captured,[{'mts','croc'},{'mts'}])
         self.assertEqual(monitor.next_scan,220)
@@ -172,11 +172,11 @@ class SettingsTests(unittest.TestCase):
     def test_saved_settings_cli_is_read_only_and_needs_no_telegram(self):
         from contextlib import redirect_stdout
         from io import StringIO
-        from botwork.__main__ import main
+        from workbot.__main__ import main
         import json
         self.command('city Москва');before=self.store.db.total_changes
         output=StringIO()
-        with patch.dict('os.environ',{'BOTWORK_DB':self.path}),patch('sys.argv',['botwork','settings','--json']),patch('botwork.__main__.Telegram') as tg,patch('botwork.__main__.logging.basicConfig'),redirect_stdout(output):
+        with patch.dict('os.environ',{'WORKBOT_DB':self.path}),patch('sys.argv',['workbot','settings','--json']),patch('workbot.__main__.Telegram') as tg,patch('workbot.__main__.logging.basicConfig'),redirect_stdout(output):
             self.assertEqual(main(),0);tg.assert_not_called()
         self.assertEqual(json.loads(output.getvalue())['filters']['city_label'],'Москва')
         self.assertEqual(before,self.store.db.total_changes)

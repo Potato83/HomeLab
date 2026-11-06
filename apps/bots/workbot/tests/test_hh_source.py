@@ -9,14 +9,14 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlsplit
 from urllib.request import Request
 
-from botwork.config import load_config
-from botwork.hh_source import collect_hh, parse_page, parse_vacancy, salary_text, security_roles
-from botwork.http import FetchError, HttpClient, NoRedirect
-from botwork.matching import decide
-from botwork.runner import Monitor
-from botwork.service import scan
-from botwork.sources import ParseError
-from botwork.storage import Store
+from workbot.config import load_config
+from workbot.hh_source import collect_hh, parse_page, parse_vacancy, salary_text, security_roles
+from workbot.http import FetchError, HttpClient, NoRedirect
+from workbot.matching import decide
+from workbot.runner import Monitor
+from workbot.service import scan
+from workbot.sources import ParseError
+from workbot.storage import Store
 
 ROOT = Path(__file__).resolve().parents[1]
 ROLE = 'Специалист по информационной безопасности'
@@ -227,7 +227,7 @@ class AuthenticatedHTTPTests(unittest.TestCase):
     def test_no_redirect_handler_and_safe_302_error(self):
         request = Request('https://api.hh.ru/vacancies', headers={'Authorization': 'Bearer SECRET'})
         self.assertIsNone(NoRedirect().redirect_request(request, None, 302, '', {}, 'https://example.com'))
-        with patch('botwork.http.build_opener') as build:
+        with patch('workbot.http.build_opener') as build:
             build.return_value.open.side_effect = HTTPError(request.full_url, 302, '', {}, BytesIO())
             with self.assertRaisesRegex(FetchError, '^HTTP 302$'):
                 HttpClient(delay=0)._get_once(request.full_url, headers={'Authorization': 'Bearer SECRET'}, follow_redirects=False)
@@ -241,7 +241,7 @@ class AuthenticatedHTTPTests(unittest.TestCase):
         context = Mock()
         context.__enter__ = Mock(return_value=response)
         context.__exit__ = Mock(return_value=False)
-        with patch('botwork.http.build_opener') as build:
+        with patch('workbot.http.build_opener') as build:
             opening = build.return_value.open
             opening.return_value = context
             client = HttpClient(delay=0)

@@ -1,5 +1,5 @@
 import unittest
-from botwork.telegram import Telegram
+from workbot.telegram import Telegram
 
 
 class TelegramAccessTests(unittest.TestCase):

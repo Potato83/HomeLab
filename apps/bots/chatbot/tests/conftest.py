@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from potato_bot.database import init_db, save_user_data
-from potato_bot.services.economy import admin_adjust
+from chatbot.database import init_db, save_user_data
+from chatbot.services.economy import admin_adjust
 
 
 @pytest.fixture

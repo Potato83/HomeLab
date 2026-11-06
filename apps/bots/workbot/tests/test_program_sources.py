@@ -2,11 +2,11 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from botwork.config import load_config
-from botwork.matching import decide
-from botwork.program_sources import parse_x5_internships, recruitment_state
-from botwork.sources import ParseError
-from botwork.storage import Store
+from workbot.config import load_config
+from workbot.matching import decide
+from workbot.program_sources import parse_x5_internships, recruitment_state
+from workbot.sources import ParseError
+from workbot.storage import Store
 
 ROOT = Path(__file__).resolve().parents[1]
 URL = 'https://generation.x5.ru/internships'

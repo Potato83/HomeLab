@@ -107,7 +107,7 @@ def load_env_config() -> EnvConfig:
     # Reports can only be sent to users who are allowed to use the bot
     if not recipients.issubset(allowed):
         raise ConfigError("DAILY_REPORT_IDS must be in ALLOWED_USER_IDS")
-    proxy = getenv("VPN", "").strip() or None
+    proxy = getenv("PROXY_URL", "").strip() or None
     # Accept the old proxy format "127.0.0.1:2080" as well
     if proxy and "://" not in proxy:
         proxy = "socks5://" + proxy
@@ -120,7 +120,7 @@ class AppConfig:
     temperatures: tuple[TemperatureCheckConfig, ...] = ()
     http_checks: tuple[HttpCheckConfig, ...] = ()
     check_interval_seconds: int = 300
-    state_file: Path = Path(__file__).resolve().parents[2] / "var/state.json"
+    state_file: Path = Path("data/state.json")
     backups: tuple[BackupCheckConfig, ...] = ()
     batteries: tuple[BatteryCheckConfig, ...] = ()
     processes: tuple[ProcessCheckConfig, ...] = ()
@@ -160,7 +160,7 @@ def _positive_hours(value: object, name: str, check_name: str) -> float:
 
 # load toml config and returns AppConfig
 def load_config(path: str | Path | None = None) -> AppConfig:
-    config_path = Path(path) if path is not None else Path(__file__).resolve().parents[2] / "config.toml"
+    config_path = Path(path) if path is not None else Path("config.toml")
     try:
         with config_path.open("rb") as config_file:
             raw = tomllib.load(config_file)
@@ -339,7 +339,7 @@ def load_config(path: str | Path | None = None) -> AppConfig:
     interval = monitoring.get("interval_seconds", 300)
     if isinstance(interval, bool) or not isinstance(interval, int) or not 1 <= interval <= 86400:
         raise ConfigError("interval_seconds must be an integer from 1 to 86400")
-    state_file = monitoring.get("state_file", "var/state.json")
+    state_file = monitoring.get("state_file", "data/state.json")
     if not isinstance(state_file, str) or not state_file.strip():
         raise ConfigError("state_file must be a non-empty path")
     state_path = Path(state_file)

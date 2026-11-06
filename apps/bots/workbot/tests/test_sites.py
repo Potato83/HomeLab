@@ -7,9 +7,9 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from botwork.__main__ import HELP, main
-from botwork.sites import load_sites, sites_messages, send_sites, length, LIMIT
-from botwork.telegram import Telegram
+from workbot.__main__ import HELP, main
+from workbot.sites import load_sites, sites_messages, send_sites, length, LIMIT
+from workbot.telegram import Telegram
 
 
 class Links(HTMLParser):
@@ -83,7 +83,7 @@ class SitesTests(unittest.TestCase):
             path = Path(directory) / 'sites.json'
             path.write_text('[{"title":"Мой раздел","items":[{"name":"Мой сайт","url":"https://example.com"}]}]')
             telegram = Mock()
-            with patch.dict('os.environ', {'BOTWORK_SITES': str(path)}):
+            with patch.dict('os.environ', {'WORKBOT_SITES': str(path)}):
                 send_sites(telegram)
                 self.assertIn('Мой сайт', telegram.send.call_args.args[0])
                 path.write_text('broken')
@@ -92,9 +92,9 @@ class SitesTests(unittest.TestCase):
 
     def test_cli_sites_does_not_need_config_database_or_telegram(self):
         output = StringIO()
-        with patch('sys.argv', ['botwork', 'sites', '--config', '/missing/config.toml', '--json']), \
-             patch('botwork.__main__.load_config') as config, patch('botwork.__main__.Store') as store, \
-             patch('botwork.__main__.Telegram') as telegram, redirect_stdout(output):
+        with patch('sys.argv', ['workbot', 'sites', '--config', '/missing/config.toml', '--json']), \
+             patch('workbot.__main__.load_config') as config, patch('workbot.__main__.Store') as store, \
+             patch('workbot.__main__.Telegram') as telegram, redirect_stdout(output):
             self.assertEqual(main(), 0)
             self.assertEqual(len(json.loads(output.getvalue())), 10)
             config.assert_not_called()

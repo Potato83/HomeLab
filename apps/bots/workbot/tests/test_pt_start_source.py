@@ -4,16 +4,16 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from botwork.config import load_config
-from botwork.matching import decide
-from botwork.models import normalize
-from botwork.program_sources import recruitment_state
-from botwork.pt_start_source import parse_pt_training
-from botwork.runner import Monitor
-from botwork.service import scan
-from botwork.sources import ParseError
-from botwork.storage import Store
-from botwork.telegram import format_message
+from workbot.config import load_config
+from workbot.matching import decide
+from workbot.models import normalize
+from workbot.program_sources import recruitment_state
+from workbot.pt_start_source import parse_pt_training
+from workbot.runner import Monitor
+from workbot.service import scan
+from workbot.sources import ParseError
+from workbot.storage import Store
+from workbot.telegram import format_message
 from unittest.mock import Mock
 
 ROOT = Path(__file__).resolve().parents[1]

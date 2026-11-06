@@ -8,16 +8,16 @@ import unittest
 from unittest.mock import Mock, patch
 from urllib.error import URLError
 
-from botwork.config import load_config
-from botwork.fast_track_source import collect_fast_track, fast_format, parse_fast_form, parse_fast_track
-from botwork.http import FetchError, HttpClient
-from botwork.matching import decide
-from botwork.reporting import source_views, sources_text, status_text
-from botwork.runner import Monitor
-from botwork.service import scan
-from botwork.sources import ParseError
-from botwork.storage import Store
-from botwork.telegram import format_message
+from workbot.config import load_config
+from workbot.fast_track_source import collect_fast_track, fast_format, parse_fast_form, parse_fast_track
+from workbot.http import FetchError, HttpClient
+from workbot.matching import decide
+from workbot.reporting import source_views, sources_text, status_text
+from workbot.runner import Monitor
+from workbot.service import scan
+from workbot.sources import ParseError
+from workbot.storage import Store
+from workbot.telegram import format_message
 
 ROOT = Path(__file__).resolve().parents[1]
 URL = 'https://pt-start.ru/fast-track'
@@ -181,7 +181,7 @@ class FastTrackTests(unittest.TestCase):
         self.assertIn('&lt;unknown&gt;', message)
 
     def test_tls_failure_has_specific_safe_reason(self):
-        with patch('botwork.http.build_opener') as build:
+        with patch('workbot.http.build_opener') as build:
             build.return_value.open.side_effect = URLError(ssl.SSLCertVerificationError('secret URL'))
             with self.assertRaisesRegex(FetchError, '^Ошибка проверки TLS-сертификата$'):
                 HttpClient(delay=0)._get_once(FORM_URL)
