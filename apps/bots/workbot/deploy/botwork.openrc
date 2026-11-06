@@ -1,0 +1,18 @@
+#!/sbin/openrc-run
+description="BotWork Telegram bot"
+supervisor="supervise-daemon"
+command="/srv/bots/botwork/.venv/bin/python"
+command_args="-m botwork run"
+command_user="botwork:botwork"
+directory="/srv/bots/botwork"
+respawn_delay=10
+respawn_max=10
+respawn_period=300
+retry="TERM/90/KILL/5"
+supervise_daemon_args="--env PYTHONUNBUFFERED=1 --env PYTHONDONTWRITEBYTECODE=1"
+output_log="/var/log/botwork/botwork.log"
+error_log="/var/log/botwork/botwork-error.log"
+depend() {
+    need net
+    after nftables sing-box
+}

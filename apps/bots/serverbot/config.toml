@@ -1,0 +1,111 @@
+[monitoring]
+interval_seconds = 300
+state_file = "var/state.json"
+
+[system]
+# CPU usage warning and critical thresholds, in percent.
+cpu_warning_percent = 80
+cpu_critical_percent = 95
+# RAM usage warning and critical thresholds, in percent.
+memory_warning_percent = 80
+memory_critical_percent = 95
+# Number of processes shown in each top-process list (1 to 10).
+top_processes = 5
+
+# Network checks are currently disabled. Uncomment and configure when needed.
+# [network]
+# ping_host = "" # Host checked from the laptop with ping.
+# ping_timeout_seconds = 3 # Ping deadline in seconds (1 to 10).
+# external_ip_url = "" # Optional HTTPS endpoint that returns the public IP.
+
+[defaults.disk]
+warning = 80
+critical = 90
+
+[[checks.disk]]
+path = "/"
+
+[[checks.disk]]
+path = "/home"
+
+[[checks.disk]]
+path = "/var/lib/containers"
+warning = 90
+critical = 95
+
+[[checks.temperature]]
+name = "CPU"
+source = "hwmon"
+driver = "k10temp"
+sensor = "temp1"
+warning = 70.0
+critical = 85.0
+
+[[checks.temperature]]
+name = "NVMe"
+source = "hwmon"
+driver = "nvme"
+sensor = "temp1"
+warning = 65.0
+critical = 80.0
+
+[[checks.battery]]
+name = "Server battery"
+# The machine has one battery; auto-detection avoids host-specific sysfs names.
+battery_supply = "auto"
+charger_supply = "auto"
+# Warn at or below 50%; critical at or below 20%.
+warning_percent = 50
+critical_percent = 20
+
+# Match this exact process name; a stopped process raises an alert.
+# [[checks.process]]
+# name = "sshd"
+
+# Add your real health endpoints. Status 200 is expected by default.
+# [[checks.http]]
+# name = "Portainer"
+# url = "http://127.0.0.1:9000/api/status"
+# timeout = 5.0
+# expected_status = 200
+# auth_env = "PORTAINER_API_KEY"
+# auth_header = "X-API-Key"
+
+# [[checks.http]]
+# name = "Other bot"
+# url = "http://127.0.0.1:8081/health"
+# timeout = 5.0
+
+[logs]
+# /logs can read only files inside these absolute directories.
+allowed_directories = ["/var/log"]
+# Maximum line count accepted by /logs (1 to 500).
+max_lines = 200
+
+# A safe alias maps to one configured log path; Telegram never accepts paths.
+[[logs.files]]
+name = "serverbot"
+path = "/var/log/serverbot/serverbot.log"
+
+# Alpine BusyBox syslog commonly writes system messages here.
+[[logs.files]]
+name = "system"
+path = "/var/log/messages"
+
+# The OpenRC service writes stderr to this separate file.
+[[logs.files]]
+name = "serverbot-error"
+path = "/var/log/serverbot/serverbot-error.log"
+
+[commands]
+# Per-user cooldown for /status, Refresh, and /logs.
+rate_limit_seconds = 10
+
+[digest]
+# Send one daily summary at the configured hour; 24 means the daily cadence.
+interval_hours = 24
+# Daily delivery hour in Europe/Moscow time (0 to 23).
+hour = 8
+
+[host_snapshot]
+path = "/var/lib/homelab-health/host.json"

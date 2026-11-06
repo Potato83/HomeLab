@@ -1,0 +1,123 @@
+[monitor]
+interval_seconds = 3600
+request_timeout_seconds = 25
+request_delay_seconds = 0.5
+scan_timeout_seconds = 600
+max_messages_per_cycle = 20
+
+[alerts]
+enabled = true
+# Оба порога должны быть достигнуты. Одно предупреждение на непрерывный сбой.
+failure_threshold = 3
+min_failure_seconds = 3600
+
+[filters]
+directions = ["security", "devsecops", "devops", "mlops"]
+min_salary = 0
+employment_types = ["any"]
+events_enabled = true
+event_cancellations = true
+event_updates = true
+event_languages = ["any"]
+event_price = "any"
+event_audience = "any"
+event_unverified = true
+event_days = 90
+# Стажировки и junior по выбранным направлениям; ИБ-словарь используется группой security.
+security_patterns = ["информационн.{0,5} безопасност", "\\bиб\\b", "кибербезопасност", "защит.{0,12}(информац|данных|приватност)", "\\b(cybersecurity|cyber security|security|soc|siem|appsec|pentest|devsecops|dfir|compliance)\\b", "penetration test", "threat (intelligence|hunting)", "анализ.{0,15}защищенн", "уязвимост", "пентест", "криптограф", "вредоносн", "malware|reverse engineering"]
+junior_patterns = ["стаж[её]р", "стажиров", "\\b(junior|intern|internship|trainee|entry.level)\\b", "начинающ", "младш", "без опыта", "опыт.{0,25}не (требуется|обязателен)"]
+senior_title_patterns = ["\\b(senior|middle|lead|principal|head|manager)\\b", "ведущ", "старш", "руководител", "начальник"]
+city_patterns = ["санкт[ -]петербург", "\\bспб\\b", "saint[ -]petersburg", "st[ .-]*petersburg"]
+include_unknown_location = true
+
+[sources.yandex]
+enabled = true
+url = "https://yandex.ru/yaintern/internship"
+
+[sources.kaspersky]
+enabled = true
+url = "https://careers.kaspersky.ru/vacancies"
+max_pages = 30
+
+[sources.bastion]
+enabled = true
+url = "https://bastion-tech.ru/vacancies"
+
+[sources.croc]
+enabled = true
+# Отдельная выдача направления «Кибербезопасность»; общий каталог нужен для проверки полноты.
+url = "https://careers.croc.ru/vacancies/?sections=11"
+catalog_url = "https://careers.croc.ru/vacancies/"
+
+[sources.mts]
+enabled = true
+url = "https://job.mts.ru"
+# Публичный поиск сайта: читаем все страницы по каждому слову и объединяем результаты.
+api_url = "https://job.mts.ru/api/v2/vacancies"
+page_size = 100
+max_pages = 50
+search_terms = ["безопас", "защит", "уязвим", "крипт", "вредонос", "security", "soc", "siem", "appsec", "pentest", "пентест", "devsecops", "dfir", "threat", "malware", "reverse", "compliance", "иб"]
+
+[sources.hh]
+# Сначала задайте HH_API_TOKEN в .env и проверьте доступ через preview.
+enabled = false
+url = "https://hh.ru"
+api_url = "https://api.hh.ru"
+page_size = 100
+max_pages = 20
+lookback_days = 365
+search_terms = ["информационная безопасность", "кибербезопасность", "AppSec", "SOC", "SIEM", "pentest", "DevSecOps", "криптограф"]
+
+[sources.croc_internships]
+# Экспериментальный адаптер официальной программы. Включать после preview.
+enabled = false
+url = "https://internship.croc.ru/"
+notify_unverified = true
+interval_seconds = 21600
+
+[sources.x5_internships]
+enabled = true
+url = "https://generation.x5.ru/internships"
+
+[sources.pt_start_training]
+enabled = true
+url = "https://pt-start.ru/with-education"
+
+[sources.pt_fast_track]
+enabled = true
+url = "https://pt-start.ru/fast-track"
+# По запросу владельца: присылать подходящие направления даже при недоступной форме,
+# явно помечая, что набор не подтверждён.
+notify_unverified = true
+
+[sources.sber]
+enabled = true
+url = "https://rabota.sber.ru"
+# Публичный API: категории ИБ плюс поиск в любых категориях, без повторов.
+api_url = "https://rabota.sber.ru/public/app-candidate-public-api-gateway/api/v1"
+page_size = 100
+max_pages = 50
+# Поиск учитывает текст вакансии; окончательный фильтр ИБ — название/категория.
+# [] отключает дополнение по словам и оставляет категории, как в версии 0.9.
+search_terms = ["безопас", "защит", "уязвим", "крипт", "вредонос", "security", "soc", "siem", "appsec", "pentest", "пентест", "devsecops", "dfir", "threat", "malware", "reverse", "compliance", "иб"]
+
+[sources.habr]
+enabled = true
+url = "https://career.habr.com/vacancies/spec/infosec"
+max_pages = 50
+
+[sources.yandex_jobs]
+enabled = true
+url = "https://yandex.ru/jobs/vacancies"
+api_url = "https://yandex.ru/jobs/api/jobs/publications/?page_size=40"
+max_pages = 50
+
+[sources.ctftime]
+enabled = true
+url = "https://ctftime.org/api/v1/events/"
+interval_seconds = 21600
+
+[sources.ods_events]
+enabled = true
+url = "https://ods.ai/events"
+interval_seconds = 21600

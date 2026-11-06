@@ -1,0 +1,18 @@
+#!/sbin/openrc-run
+description="ChatBot Telegram bot"
+supervisor="supervise-daemon"
+command="/srv/bots/chatbot/.venv/bin/python"
+command_args="-m potato_bot.main"
+command_user="chatbot:chatbot"
+directory="/srv/bots/chatbot"
+respawn_delay=10
+respawn_max=10
+respawn_period=300
+retry="TERM/30/KILL/5"
+supervise_daemon_args="--env PYTHONUNBUFFERED=1 --env PYTHONDONTWRITEBYTECODE=1"
+output_log="/var/log/chatbot/chatbot.log"
+error_log="/var/log/chatbot/chatbot-error.log"
+depend() {
+    need net
+    after nftables sing-box
+}

@@ -1,0 +1,37 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.env
+
+# Local monitoring state
+var/
+
+# Local secrets, runtime and tooling artifacts
+.env.*
+!.env.example
+.venv/
+venv/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.db
+*.db-*
+*.sqlite*
+data/
+work/
+backups/
+*.log
+*.pem
+*.key
+.idea/
+.vscode/
+*.egg-info/

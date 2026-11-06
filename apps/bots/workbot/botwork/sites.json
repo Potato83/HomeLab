@@ -1,0 +1,317 @@
+[
+  {
+    "title": "Ваши ссылки — стажировки и программы",
+    "items": [
+      {
+        "name": "Яндекс — стажировки",
+        "url": "https://yandex.ru/yaintern/internship"
+      },
+      {
+        "name": "Банк Санкт-Петербург — начало карьеры",
+        "url": "https://www.bspb.ru/career/start"
+      },
+      {
+        "name": "Альфа-Банк — Alfa Future",
+        "url": "https://alfabank.ru/alfafuture/"
+      },
+      {
+        "name": "Альфа Future Hack",
+        "url": "https://alfabank.sale/alfafuture/event/hack/#form",
+        "note": "Мероприятие; ссылка для ручной проверки"
+      },
+      {
+        "name": "Т-Банк — Т-Старт",
+        "url": "https://education.tbank.ru/start/"
+      },
+      {
+        "name": "Ozon Tech — RouteStart (исходная ссылка)",
+        "url": "https://ozon.tech/routestart/?__rr=1&abt_att=1"
+      },
+      {
+        "name": "Changellenge — проекты",
+        "url": "https://changellenge.com/personal/projects/",
+        "note": "Личный кабинет"
+      },
+      {
+        "name": "Яндекс Профи",
+        "url": "https://yandex.ru/profi"
+      },
+      {
+        "name": "МТС — программы стажировок",
+        "url": "https://job.mts.ru/programs"
+      },
+      {
+        "name": "PT Start",
+        "url": "https://pt-start.ru/"
+      },
+      {
+        "name": "ИнфоТеКС — стажировки",
+        "url": "https://career.infotecs.ru/intern/"
+      }
+    ]
+  },
+  {
+    "title": "Ваши ссылки — карьерные сайты",
+    "items": [
+      {
+        "name": "Билайн",
+        "url": "https://job.beeline.ru/"
+      },
+      {
+        "name": "ВТБ — карьера в ИТ",
+        "url": "https://rabota.vtb.ru/career-it/"
+      },
+      {
+        "name": "X5",
+        "url": "https://rabota.x5.ru/"
+      },
+      {
+        "name": "Kaspersky — вакансии",
+        "url": "https://careers.kaspersky.ru/vacancies"
+      },
+      {
+        "name": "ИнфоТеКС — карьера",
+        "url": "https://career.infotecs.ru/"
+      },
+      {
+        "name": "НеоБИТ — вакансии",
+        "url": "https://neobit.ru/career/vacancies"
+      },
+      {
+        "name": "Бастион — карьера",
+        "url": "https://bastion-tech.ru/career",
+        "note": "Ваша пометка: стоит рассмотреть"
+      },
+      {
+        "name": "Сбер",
+        "url": "https://rabota.sber.ru/"
+      },
+      {
+        "name": "Ozon Tech — вакансии",
+        "url": "https://ozon.tech/vacancies/"
+      },
+      {
+        "name": "CROC — карьера",
+        "url": "https://careers.croc.ru/"
+      }
+    ]
+  },
+  {
+    "title": "Дополнительно для поиска",
+    "items": [
+      {
+        "name": "hh.ru",
+        "url": "https://hh.ru/",
+        "note": "Вакансии и стажировки; используйте фильтры ИБ, уровня и расположения"
+      },
+      {
+        "name": "Хабр Карьера",
+        "url": "https://career.habr.com/vacancies",
+        "note": "Вакансии в IT с фильтрами уровня и удалённой работы"
+      },
+      {
+        "name": "Ozon Tech — актуальная страница стажировок",
+        "url": "https://ozon.tech/internship/"
+      },
+      {
+        "name": "PT Start — Fast Track",
+        "url": "https://pt-start.ru/fast-track",
+        "note": "Статус набора проверяйте отдельно"
+      },
+      {
+        "name": "PT Start — стажировка с обучением",
+        "url": "https://pt-start.ru/with-education"
+      },
+      {
+        "name": "Яндекс — все вакансии",
+        "url": "https://yandex.ru/jobs/vacancies"
+      },
+      {
+        "name": "МТС — вакансии",
+        "url": "https://job.mts.ru/vacancies"
+      },
+      {
+        "name": "КРОК — кибербезопасность",
+        "url": "https://careers.croc.ru/vacancies/?sections=11"
+      }
+    ]
+  },
+  {
+    "title": "Ваши инструменты и материалы",
+    "items": [
+      {
+        "name": "hh-ai-agent",
+        "url": "https://github.com/fikstt2/hh-ai-agent",
+        "note": "Исходный проект из вашего списка; не источник вакансий"
+      },
+      {
+        "name": "DevOps Projects",
+        "note": "Заметка: 06_Resources/Programming Resources#DevOps и инфраструктура"
+      },
+      {
+        "name": "DevSecOps",
+        "note": "Заметка: 02_IT/DevSecOps/DevSecOps Index"
+      }
+    ]
+  },
+  {
+    "title": "ИБ — мероприятия, CTF и сообщества",
+    "items": [
+      {
+        "name": "PHDays Fest",
+        "url": "https://phdays.com/ru/",
+        "note": "Фестиваль кибербезопасности: Москва и онлайн, доклады и конкурсы. Дату и регистрацию следующего события проверяйте на сайте"
+      },
+      {
+        "name": "OFFZONE",
+        "url": "https://offzone.moscow/",
+        "note": "Конференция по практической кибербезопасности в Москве; программа и записи. Страница прошлого события не подтверждает новую регистрацию"
+      },
+      {
+        "name": "Standoff 365",
+        "url": "https://standoff365.com/",
+        "note": "Киберсоревнования, тренировки и Bug Bounty. Условия допуска и расписание различаются по активности"
+      },
+      {
+        "name": "CTFtime — ближайшие CTF",
+        "url": "https://ctftime.org/event/list/upcoming",
+        "note": "Международный календарь CTF: даты, формат online/onsite и ссылки организаторов. Часовой пояс уточняйте в карточке"
+      },
+      {
+        "name": "OWASP — мероприятия",
+        "url": "https://owasp.org/events",
+        "note": "Мероприятия по AppSec и безопасности разработки, смежные с DevSecOps. Географию, формат и условия участия проверяйте отдельно"
+      },
+      {
+        "name": "SPbCTF",
+        "url": "https://spbctf.ru/",
+        "note": "Сообщество спортивного хакинга с петербургскими корнями: обучение, CTF и тренировки; анонсы ищите по ссылкам сообщества"
+      },
+      {
+        "name": "Студент CTF — Санкт-Петербург",
+        "url": "https://ctfs.spb.ru/",
+        "note": "Соревнования по ИБ для студентов СПб. Проверяйте год и сроки: форма на странице прошлого сезона не означает открытый приём"
+      }
+    ]
+  },
+  {
+    "title": "DevOps / SRE / Platform / DevSecOps — поиск вакансий",
+    "items": [
+      {
+        "name": "Хабр Карьера — DevOps",
+        "url": "https://career.habr.com/vacancies?q=DevOps&type=all",
+        "note": "Текстовый поиск. Выберите стажёр/junior и проверьте удалёнку либо офис/гибрид в СПб"
+      },
+      {
+        "name": "Хабр Карьера — SRE",
+        "url": "https://career.habr.com/vacancies?q=SRE&type=all",
+        "note": "Site Reliability Engineering: надёжность и эксплуатация. Уровень, город и формат выберите на сайте"
+      },
+      {
+        "name": "Хабр Карьера — Platform Engineer",
+        "url": "https://career.habr.com/vacancies?q=Platform%20Engineer&type=all",
+        "note": "Платформенная инженерия и инфраструктура разработчиков. Это поиск по тексту; стажировки и СПб/удалёнку уточняйте отдельно"
+      },
+      {
+        "name": "Хабр Карьера — DevSecOps",
+        "url": "https://career.habr.com/vacancies?q=DevSecOps&type=all",
+        "note": "Безопасность CI/CD и инфраструктуры. Уровень и расположение проверяйте в карточке"
+      },
+      {
+        "name": "GitJobs — Open Source / Cloud Native",
+        "url": "https://gitjobs.dev/",
+        "note": "Сюда перенаправляет прежний jobs.cncf.io. Международные вакансии: выберите Internship/уровень, проверьте страны найма и удалёнку"
+      }
+    ]
+  },
+  {
+    "title": "MLOps / ML Platform / Data Engineering — поиск вакансий",
+    "items": [
+      {
+        "name": "Хабр Карьера — MLOps",
+        "url": "https://career.habr.com/vacancies?q=MLOps&type=all",
+        "note": "Развёртывание и сопровождение ML. Выберите начальный уровень и проверьте удалёнку либо офис/гибрид в СПб"
+      },
+      {
+        "name": "Хабр Карьера — ML Platform",
+        "url": "https://career.habr.com/vacancies?q=ML%20Platform&type=all",
+        "note": "Текстовый поиск ролей в ML-инфраструктуре; отсутствие совпадений по этому запросу не означает отсутствие вакансий MLOps"
+      },
+      {
+        "name": "Хабр Карьера — Data Engineer",
+        "url": "https://career.habr.com/vacancies?q=Data%20Engineer&type=all",
+        "note": "Смежное направление: пайплайны и инфраструктура данных. Не каждая вакансия связана с MLOps; проверяйте задачи и уровень"
+      },
+      {
+        "name": "Open Data Science — вакансии",
+        "url": "https://ods.ai/jobs",
+        "note": "Вакансии в данных и ML; ищите MLOps, ML Platform и Data Engineering, проверяйте начальный уровень и географию"
+      }
+    ]
+  },
+  {
+    "title": "DevOps / SRE / Cloud Native — мероприятия",
+    "items": [
+      {
+        "name": "DevOpsConf",
+        "url": "https://devopsconf.io/",
+        "note": "Конференция, митапы, доклады и сообщество; также SRE и Platform Engineering. Проверяйте дату: на главной может быть архив"
+      },
+      {
+        "name": "CNCF — календарь мероприятий",
+        "url": "https://www.cncf.io/events/",
+        "note": "KubeCon, CloudNativeCon и другие события экосистемы Kubernetes; международный календарь, формат и регион указаны у организатора"
+      },
+      {
+        "name": "Yandex Cloud — мероприятия и вебинары",
+        "url": "https://yandex.cloud/ru/events",
+        "note": "Облачная инфраструктура, Kubernetes, DevOps, данные и ИБ. Выберите тему и формат конкретного события"
+      }
+    ]
+  },
+  {
+    "title": "MLOps / ML Platform / Data Engineering — мероприятия и сообщества",
+    "items": [
+      {
+        "name": "Open Data Science — календарь",
+        "url": "https://ods.ai/events",
+        "note": "Митапы, хакатоны и события по данным и ML, включая MLOps. Встречаются СПб и онлайн; проверяйте вкладки будущих и прошедших событий"
+      },
+      {
+        "name": "DataTalks.Club — мероприятия",
+        "url": "https://datatalks.club/events.html",
+        "note": "Англоязычные вебинары, воркшопы и подкасты по ML и инженерии данных; отдельно upcoming и архив записей"
+      },
+      {
+        "name": "MLOps Community — митапы",
+        "url": "https://mlops.community/meetups",
+        "note": "Международные встречи по эксплуатации ML; ищите доступный город и проверяйте дату и формат"
+      },
+      {
+        "name": "MLOps Community — онлайн-события",
+        "url": "https://home.mlops.community/public/events",
+        "note": "Календарь онлайн-сообщества; сейчас площадка названа Agentic AI Foundation. Темы включают смежную AI-инфраструктуру; проверяйте язык и время"
+      }
+    ]
+  },
+  {
+    "title": "Смежные направления — материалы и практика",
+    "items": [
+      {
+        "name": "MLOps Zoomcamp — DataTalks.Club",
+        "url": "https://github.com/DataTalksClub/mlops-zoomcamp",
+        "note": "Бесплатные материалы курса и практические проекты: ML-пайплайны, развёртывание и мониторинг. Доступ к материалам не означает открытый набор потока"
+      },
+      {
+        "name": "Google SRE — книги",
+        "url": "https://sre.google/books/",
+        "note": "Материалы по надёжности, эксплуатации и безопасным системам для SRE, DevOps и Platform Engineering; англоязычный ресурс"
+      },
+      {
+        "name": "OWASP DevSecOps Guideline",
+        "url": "https://owasp.org/projects/devsecops-guideline",
+        "note": "Практики безопасного DevOps: CI/CD, SAST/DAST, зависимости, IaC и supply chain security; учебный материал"
+      }
+    ]
+  }
+]

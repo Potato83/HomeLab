@@ -1,0 +1,19 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "omniroute": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "HomeLab · OmniRoute",
+      "options": {
+        "baseURL": "http://127.0.0.1:20128/v1",
+        "apiKey": "{file:~/.config/omniroute/opencode.key}"
+      },
+      "models": {
+        "auto/best-coding": {
+          "name": "OmniRoute · coding",
+          "limit": { "context": 65536, "output": 8192 }
+        }
+      }
+    }
+  }
+}

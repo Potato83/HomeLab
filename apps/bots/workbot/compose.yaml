@@ -1,0 +1,24 @@
+services:
+  botwork:
+    build: .
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 1.0
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    env_file: .env
+    environment:
+      BOTWORK_DB: /data/botwork.sqlite3
+    volumes:
+      - botwork-data:/data
+      - ./config.toml:/app/config.toml:ro
+    stop_grace_period: 90s
+volumes:
+  botwork-data:

@@ -1,0 +1,32 @@
+#!/sbin/openrc-run
+description="botwork Telegram bot (Podman)"
+
+depend() {
+    need net
+    after local nftables sing-box
+}
+
+start() {
+    ebegin "Starting botwork"
+    if [ "$(/usr/bin/podman inspect --format '{{.State.Running}}' botwork 2>/dev/null)" = "true" ]; then
+        eend 0
+    else
+        /usr/bin/podman start botwork
+        eend $?
+    fi
+}
+
+stop() {
+    ebegin "Stopping botwork"
+    /usr/bin/podman stop --time 90 botwork
+    eend $?
+}
+
+status() {
+    if [ "$(/usr/bin/podman inspect --format '{{.State.Running}}' botwork 2>/dev/null)" = "true" ]; then
+        einfo "botwork is running"
+    else
+        eerror "botwork is stopped"
+        return 1
+    fi
+}
