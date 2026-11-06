@@ -18,7 +18,7 @@ uv run bot
 
 ```sh
 cd /srv/bots/chatbot
-uv sync --locked --no-dev
+uv sync --locked --no-dev --python /usr/bin/python3
 install -m 755 deploy/chatbot.openrc /etc/init.d/chatbot
 rc-update add chatbot default
 rc-service chatbot start
@@ -30,4 +30,4 @@ rc-service chatbot start
 
 При обновлении остановите службу, замените код, выполните `uv sync --locked --no-dev`, запустите службу и проверьте журнал. Данные остаются в `data/`.
 
-Текущий сервер ещё использует прежние пакеты и службу `botwork`. При переходе на эту версию нужно перенести код и данные. Переменные: ServerBot `VPN` → `PROXY_URL`; WorkBot `BOTWORK_*` → `WORKBOT_*`, `TELEGRAM_BOT_TOKEN` → `BOT_TOKEN`, `TELEGRAM_CHAT_ID` → `OWNER_ID`. Новый путь состояния ServerBot — `data/state.json`, базы ChatBot — `data/chatbot.sqlite3`. Структура таблиц SQLite не меняется.
+Для перехода со старой установки перенесите код и данные; старое имя службы WorkBot — `botwork`. Переменные: ServerBot `VPN` → `PROXY_URL`; WorkBot `BOTWORK_*` → `WORKBOT_*`, `TELEGRAM_BOT_TOKEN` → `BOT_TOKEN`, `TELEGRAM_CHAT_ID` → `OWNER_ID`. Новый путь состояния ServerBot — `data/state.json`, базы ChatBot — `data/chatbot.sqlite3`. Структура таблиц SQLite не меняется.
