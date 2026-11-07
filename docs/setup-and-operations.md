@@ -10,7 +10,7 @@ uv sync --locked
 uv run bot
 ```
 
-`uv run bot --help` — справка. `uv run pytest` — тесты. AgentBot пока не реализован.
+`uv run bot --help` — справка. `uv run pytest` — тесты. AgentBot использует те же команды uv; его транспорт и настройки описаны в [README](../apps/bots/agentbot/README.md).
 
 ## Alpine
 
