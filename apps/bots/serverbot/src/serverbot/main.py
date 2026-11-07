@@ -11,6 +11,8 @@ from aiohttp import ClientSession, ClientTimeout, DummyCookieJar
 from dotenv import load_dotenv
 
 from serverbot.config import load_config, load_env_config
+from serverbot.control import ControlClient
+from serverbot.control_handlers import router as control_router
 from serverbot.handlers import router
 from serverbot.logging_setup import setup_logging
 from serverbot.middlewares import AccessMiddleware
@@ -23,6 +25,7 @@ logger = logging.getLogger(__name__)
 BOT_COMMANDS = [
     BotCommand(command="start", description="Показать команды"),
     BotCommand(command="status", description="Сводка по серверу"),
+    BotCommand(command="panel", description="Управление VM и ботами"),
     BotCommand(command="logs", description="Прочитать разрешённый журнал"),
 ]
 
@@ -40,6 +43,8 @@ async def main() -> None:
     # Check access before any command handler runs
     dp.update.outer_middleware(AccessMiddleware(settings.allowed_user_ids))
     dp.include_router(router)
+    dp.include_router(control_router)
+    control = ControlClient(enabled=config.control_enabled)
     session = AiohttpSession(proxy=settings.proxy, timeout=30)
     # Telegram uses the optional proxy; local HTTP checks connect directly
     # Both sessions are closed automatically when these contexts end
@@ -58,7 +63,8 @@ async def main() -> None:
         scheduler.start()
         try:
             # Aiogram passes config and http_session to handlers by argument name
-            await dp.start_polling(bot, config=config, http_session=http_session, close_bot_session=False)
+            await dp.start_polling(bot, config=config, http_session=http_session,
+                                   control=control, close_bot_session=False)
         finally:
             # Stop scheduled jobs before closing the network sessions
             scheduler.shutdown(wait=False)

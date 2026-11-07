@@ -20,6 +20,10 @@ LABELS = {'system:updates':'Обновления','bot:workbot-db':'Источн
 
 
 def short_detail(key, detail):
+    if detail == 'Stopped manually':
+        return 'Остановлен вручную'
+    if detail == 'Control operation in progress':
+        return 'Выполняется операция'
     if key == 'system:updates':
         match = re.search(r'(\d+) package updates pending', detail)
         if match:
@@ -100,13 +104,16 @@ async def build_mobile_status(config, http_session):
         issue(LABELS.get(reading.key,reading.name),reading.status,short_detail(reading.key,reading.detail))
     def state(keys):
         rows=[r for r in host if r.key in keys]
+        if rows and all(r.detail == 'Stopped manually' for r in rows) and len(rows)==len(keys):
+            return '⚪'
         return ICONS[max((r.status for r in rows),key=RANK.get)] if len(rows)==len(keys) else '⚪'
     blocks=[]
     for user,title in (('serverbot','ServerBot'),('chatbot','ChatBot'),('workbot','WorkBot')):
         keys=['service:'+user,'bot:'+user]
         if user=='chatbot': keys.append('bot:chatbot-db')
         if user=='workbot': keys.append('bot:workbot-db')
-        blocks.append(state(keys)+' '+title)
+        stopped = any(r.key == 'service:'+user and r.detail == 'Stopped manually' for r in host)
+        blocks.append(state(keys)+' '+title+(' · остановлен вручную' if stopped else ''))
     now=datetime.now(ZoneInfo('Europe/Moscow')).strftime('%H:%M МСК')
     heading = 'Всё в порядке' if not problems else f'Требует внимания: {len(problems)}'
     result=[f'{ICONS[worst]} <b>HomeLab</b> · {now}',escape(heading)]
@@ -115,10 +122,12 @@ async def build_mobile_status(config, http_session):
         if len(problems)>6:
             result.append(f'Ещё {len(problems)-6} — в подробностях')
     result += ['\n<b>Ресурсы</b>',*metrics,'\n<b>Боты</b>',*blocks]
-    result += ['\n<b>Система</b>',state(['vm:kali','vm:ssh'])+' Kali · VM и SSH',
+    kali_stopped = any(r.key == 'vm:kali' and r.detail == 'Stopped manually' for r in host)
+    gateway_stopped = any(r.key == 'service:omniroute' and r.detail == 'Stopped manually' for r in host)
+    result += ['\n<b>Система</b>',state(['vm:kali','vm:ssh'])+(' Kali · остановлена вручную' if kali_stopped else ' Kali · VM и SSH'),
                state(['network:dns','network:https'])+' Интернет · DNS и HTTPS',
                state(['disk:smart'])+' SSD · SMART',state(['time:ntp'])+' Время · синхронизация',
-               state(['service:omniroute','service:nginx','gateway:health'])+' OmniRoute · API']
+               ('⚪' if gateway_stopped else state(['service:omniroute','service:nginx','gateway:health']))+(' OmniRoute · остановлен вручную' if gateway_stopped else ' OmniRoute · API')]
     if any(r.key=='host:collector' for r in host):
         result.append('⚪ Состояние служб сейчас неизвестно')
     return '\n'.join(result)
@@ -136,6 +145,8 @@ def host_description(row):
     if row is None:
         return 'Нет свежих данных'
     detail=row.detail
+    if detail in {'Stopped manually', 'Control operation in progress'}:
+        return short_detail(row.key, detail)
     if detail=='Health query failed': return 'Не удалось выполнить проверку'
     if detail=='Waiting for confirmation of first failed sample': return 'Первый сбой · ожидаем повторную проверку'
     if row.key in {'memory:swap','disk:inodes'}:
@@ -162,6 +173,12 @@ def host_description(row):
     return short_detail(row.key,detail)
 
 
+def host_icon(row):
+    if row is None or row.detail in {'Stopped manually', 'Control operation in progress'}:
+        return '⚪'
+    return ICONS[row.status]
+
+
 async def build_detail_page(config, http_session, page):
     if page not in DETAIL_PAGES:
         raise ValueError('Unknown status page')
@@ -171,7 +188,7 @@ async def build_detail_page(config, http_session, page):
     indexed={r.key:r for r in host}
     def block(key,label):
         row=indexed.get(key)
-        icon=ICONS[row.status] if row else '⚪'
+        icon=host_icon(row)
         return f'\n{icon} <b>{escape(label)}</b>\n{escape(host_description(row))}'
     if page=='resources':
         try:
@@ -211,15 +228,15 @@ async def build_detail_page(config, http_session, page):
             lines.append('\n<b>'+title+'</b>')
             for key,label in [('service:'+name,'Служба'),('bot:'+name,'Приложение')]:
                 row=indexed.get(key)
-                lines.append(f'{ICONS[row.status] if row else "⚪"} {escape(host_description(row))}')
+                lines.append(f'{host_icon(row)} {escape(host_description(row))}')
             extra='bot:chatbot-db' if name=='chatbot' else 'bot:workbot-db' if name=='workbot' else None
             if extra:
                 row=indexed.get(extra)
-                lines.append(f'{ICONS[row.status] if row else "⚪"} {escape(host_description(row))}')
+                lines.append(f'{host_icon(row)} {escape(host_description(row))}')
         lines.append('\n<b>Системные службы</b>')
         for name,label in [('sshd','SSH'),('nftables','Firewall'),('libvirtd','Libvirt'),('sing-box','Прокси'),('chronyd','Время'),('crond','Cron'),('omniroute','OmniRoute'),('nginx','Gateway proxy')]:
             row=indexed.get('service:'+name)
-            lines.append(f'{ICONS[row.status] if row else "⚪"} {label} · {escape(host_description(row))}')
+            lines.append(f'{host_icon(row)} {label} · {escape(host_description(row))}')
         lines.append('\n<i>Процесс и база не гарантируют ответ каждого обработчика.</i>')
     elif page=='network':
         for key,label in [('vm:kali','Kali · виртуальная машина'),('vm:ssh','Kali · SSH'),

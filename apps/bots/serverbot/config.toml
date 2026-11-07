@@ -109,3 +109,7 @@ hour = 8
 
 [host_snapshot]
 path = "/var/lib/homelab-health/host.json"
+
+[control]
+# Enable after installing deploy/host/control.py and deploy/serverbot.doas.conf.
+enabled = false

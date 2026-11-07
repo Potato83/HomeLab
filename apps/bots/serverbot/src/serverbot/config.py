@@ -133,6 +133,7 @@ class AppConfig:
     digest_interval_hours: int = 0
     digest_hour: int = 8
     host_snapshot: Path | None = None
+    control_enabled: bool = False
 
 
 class ConfigError(ValueError):
@@ -456,6 +457,10 @@ def load_config(path: str | Path | None = None) -> AppConfig:
     if snapshot_path is not None and (not isinstance(snapshot_path, str) or not snapshot_path.startswith("/")):
         raise ConfigError("host_snapshot.path must be an absolute path")
 
+    control_section = raw.get("control", {})
+    if not isinstance(control_section, dict) or type(control_section.get("enabled", False)) is not bool:
+        raise ConfigError("control.enabled must be a boolean")
+
     return AppConfig(
         disks=tuple(mounts), temperatures=tuple(temperatures), http_checks=tuple(services),
         check_interval_seconds=interval, state_file=state_path, backups=tuple(backups),
@@ -464,4 +469,5 @@ def load_config(path: str | Path | None = None) -> AppConfig:
         max_log_lines=max_log_lines, command_rate_limit_seconds=command_rate_limit,
         digest_interval_hours=digest_hours, digest_hour=digest_hour,
         host_snapshot=Path(snapshot_path) if snapshot_path is not None else None,
+        control_enabled=control_section.get("enabled", False),
     )

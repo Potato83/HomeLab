@@ -134,6 +134,10 @@ async def check_and_notify(bot: Bot, config: AppConfig, http_session: ClientSess
         saved = new_states[str(user_id)]
         for result in results:
             previous = saved.get(result.key)
+            if result.detail in {'Stopped manually', 'Control operation in progress'}:
+                # A deliberate stop is neither a failure nor a recovery notification.
+                saved[result.key] = result.status
+                continue
             if should_notify(previous, result.status):
                 title = "RECOVERED" if result.status == "ok" else "ALERT"
                 message = f"{title}: {result.name}\n{(previous or 'unknown').upper()} -> {result.status.upper()}\n{result.detail}"

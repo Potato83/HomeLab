@@ -108,3 +108,25 @@ def test_failed_state_write_is_logged_and_does_not_advance_memory(tmp_path, monk
     assert state.states == {}
     assert "monitoring_state_save_failed" in caplog.text
     assert "private-error-details" not in caplog.text
+
+
+def test_manual_stop_and_operation_are_silent_but_later_crash_still_alerts(tmp_path, monkeypatch):
+    async def run():
+        key = 'service:chatbot'
+        readings = AsyncMock(side_effect=[
+            [CheckResult(key, 'ChatBot', 'ok', 'Control operation in progress')],
+            [CheckResult(key, 'ChatBot', 'ok', 'Stopped manually')],
+            [CheckResult(key, 'ChatBot', 'ok', 'OpenRC running')],
+            [CheckResult(key, 'ChatBot', 'critical', 'OpenRC not running')],
+        ])
+        monkeypatch.setattr('serverbot.monitoring.collect_checks', readings)
+        bot = MagicMock(send_message=AsyncMock())
+        state = StateStore(tmp_path / 'state.json')
+        state.save({'123': {key: 'critical'}})
+        for _ in range(3):
+            await check_and_notify(bot, AppConfig(()), MagicMock(), frozenset({123}), state)
+        bot.send_message.assert_not_awaited()
+        await check_and_notify(bot, AppConfig(()), MagicMock(), frozenset({123}), state)
+        bot.send_message.assert_awaited_once()
+        assert 'ALERT' in bot.send_message.await_args.args[1]
+    asyncio.run(run())

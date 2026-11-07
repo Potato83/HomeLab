@@ -283,7 +283,7 @@ def status_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="↻ Обновить", callback_data="status:refresh"),
         InlineKeyboardButton(text="Подробнее", callback_data="status:details"),
-    ]])
+    ], [InlineKeyboardButton(text="⚙️ Управление", callback_data="control:home")]])
 
 
 def _rate_limit_remaining(user_id: int, command: str, cooldown: int) -> int:
@@ -300,7 +300,7 @@ def _rate_limit_remaining(user_id: int, command: str, cooldown: int) -> int:
 
 @router.message(Command("start"))
 async def command_start_handler(message: types.Message) -> None:
-    await message.answer("Commands:\n/start — show commands\n/status — server summary\n/logs <name> [lines] — configured log tail")
+    await message.answer("/status — сводка по серверу\n/panel — управление VM и ботами\n/logs <имя> [строк] — разрешённый журнал")
 
 
 @router.message(Command("status"))
@@ -335,7 +335,11 @@ async def _edit_status(message, report, keyboard):
             raise
 
 
-@router.callback_query()
+async def is_status_callback(callback: types.CallbackQuery) -> bool:
+    return (callback.data or '').startswith('status:')
+
+
+@router.callback_query(is_status_callback)
 async def status_callback_handler(
     callback: types.CallbackQuery,
     config: AppConfig,

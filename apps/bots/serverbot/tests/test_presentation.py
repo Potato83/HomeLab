@@ -131,3 +131,19 @@ def test_gateway_warning_is_visible_in_summary_and_details(monkeypatch):
     assert '🔴 OmniRoute · API' in summary
     details=asyncio.run(presentation.build_detail_page(config,None,'network'))
     assert '🔴 <b>OmniRoute · API</b>' in details
+
+
+def test_manual_stop_is_neutral_and_explicit_in_status_and_details(monkeypatch):
+    monkeypatch.setattr(presentation, 'get_system_reading', AsyncMock(return_value=system()))
+    keys = ['service:chatbot', 'bot:chatbot', 'bot:chatbot-db', 'vm:kali', 'vm:ssh',
+            'service:omniroute', 'gateway:health']
+    monkeypatch.setattr(presentation, 'read_host_snapshot', lambda p: [
+        HostReading(key, key, 'ok', 'Stopped manually') for key in keys])
+    config = AppConfig((), host_snapshot=Path('/host.json'))
+    summary = asyncio.run(presentation.build_mobile_status(config, None))
+    assert 'Что проверить' not in summary
+    assert '⚪ ChatBot · остановлен вручную' in summary
+    assert '⚪ Kali · остановлена вручную' in summary
+    assert '⚪ OmniRoute · остановлен вручную' in summary
+    details = asyncio.run(presentation.build_detail_page(config, None, 'bots'))
+    assert '⚪ Остановлен вручную' in details

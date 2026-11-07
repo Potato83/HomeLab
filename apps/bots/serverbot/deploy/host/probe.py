@@ -33,6 +33,8 @@ def is_bot_process(args, user, module):
     )
 
 def main():
+    from control import monitoring_overrides
+
     with (BASE/'probe.lock').open('w') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -43,7 +45,10 @@ def main():
         except (OSError, ValueError):
             old = {}
         checks, streaks = [], {}
+        overrides = monitoring_overrides()
         def add(key, name, status, detail, immediate=False):
+            if key in overrides:
+                status, detail = 'ok', overrides[key]
             streaks[key] = old.get('streaks', {}).get(key, 0) + 1 if status != 'ok' else 0
             if status != 'ok' and not immediate and streaks[key] < 2:
                 status, detail = 'ok', 'Waiting for confirmation of first failed sample'
