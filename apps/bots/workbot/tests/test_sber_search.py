@@ -115,10 +115,17 @@ class SberSearchTests(unittest.TestCase):
         queries = [parse_qs(urlsplit(url).query) for url in client.calls if 'searchString=' in url]
         self.assertEqual([q['skip'] for q in queries], [['0'], ['1']])
 
-    def test_keyword_without_evidence_is_error(self):
+    def test_provider_search_can_expand_words(self):
         client = SearchClient({'security': {0: page()}})
-        with self.assertRaisesRegex(ParseError, 'без поискового слова'):
-            self.collect(client)
+        rows = self.collect(client)
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(decide(rows[0], self.rules).matched)
+
+    def test_unrelated_search_extra_does_not_become_a_notification(self):
+        extra = other_category(title='Бухгалтер', requirements='Excel')
+        rows = self.collect(SearchClient({'security': {0: page([extra])}}))
+        selected = [v for v in rows if decide(v, self.rules).matched]
+        self.assertEqual([v.external_id for v in selected], ['123'])
 
     def test_keyword_page_limit_is_enforced(self):
         client = SearchClient({'security': {0: page([other_category()], total=2)}})

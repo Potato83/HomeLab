@@ -130,12 +130,13 @@ class MtsTests(unittest.TestCase):
         with self.assertRaises(ParseError):
             collect_mts(self.settings | {'max_pages': 1}, Client(), self.rules)
 
-    def test_ignored_filter_is_error(self):
+    def test_extra_api_results_are_filtered_locally(self):
         class Client:
             def get(self, url):
                 return page([row(title='Продавец')])
-        with self.assertRaises(ParseError):
-            collect_mts(self.settings, Client(), self.rules)
+        rows = collect_mts(self.settings, Client(), self.rules)
+        self.assertEqual(len(rows), 1)
+        self.assertFalse(decide(rows[0], self.rules).matched)
 
     def test_overlapping_search_results_deduplicated(self):
         class Client:

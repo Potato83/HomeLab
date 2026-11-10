@@ -182,16 +182,8 @@ def collect_sber(settings, client, rules):
                 query += [('searchString', term)]
             batch, total = parse_publications(client.get(api_url + '/publications?' + urlencode(query)),
                 base_url, skip, size, categories if term is None else areas, experiences, schedules, allow_unknown_category=term is not None)
-            # The site's full-text search also matches duties/requirements.
-            # This validates the query; eligibility is still decided separately
-            # from the title/category, never from a body keyword alone.
-            def query_matches(v):
-                text = normalize(' '.join([v.title, *v.categories, v.description]))
-                # The site's Russian full-text search inflects this generated
-                # query (данные/данными/данным). Classification remains separate.
-                return bool(re.search(r'\bданн[а-я]*\b', text)) if term == 'данных' else term in text
-            if term is not None and any(not query_matches(v) for v in batch):
-                raise ParseError('Сбер: API вернул результаты без поискового слова')
+            # Provider search may expand words. The shared local keyword
+            # decision, rather than a provider's search hint, selects notices.
             return batch, total
         # The API has no public stable-sort option. Equal-ranked results may
         # cross page boundaries. Repair only by proving the full unique count;

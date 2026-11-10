@@ -130,25 +130,13 @@ def collect_mts(settings, client, rules):
     if not isinstance(terms, list) or not terms or len(terms) > 32 or any(not isinstance(t, str) or not 2 <= len(t.strip()) <= 60 for t in terms):
         raise ValueError("МТС: задайте от 1 до 32 непустых поисковых слов длиной 2–60 символов")
     unique = {}
-    detail_pages = {}
-    def detail(v):
-        if v.external_id not in detail_pages:
-            detail_pages[v.external_id] = client.get(v.url)
-        return parse_mts_detail(detail_pages[v.external_id], v)
-    # This public API treats a containsi query as a search over titles and
-    # categories. Nested OR/category queries may be ignored. Search separately
-    # and verify that results actually match one of those metadata fields.
+    # Search is a collection hint. APIs may expand words or return extras;
+    # eligibility is always checked locally against the owner's literal words.
     for term in dict.fromkeys(terms):
         def fetch_page(page):
             query = urlencode({"pagination[page]": page, "pagination[pageSize]": page_size,
                                "filters[title][$containsi]": term})
             batch, paging = parse_mts_page(client.get(url + "?" + query), base_url, page, page_size)
-            for v in batch:
-                if normalize(term) not in normalize(' '.join([v.title, *v.categories, v.description])):
-                    if not v.description:
-                        detail(v)
-                    if normalize(term) not in normalize(' '.join([v.title, *v.categories, v.description])):
-                        raise ParseError("МТС: API проигнорировал поисковый фильтр")
             return batch, paging
         rows, paging = fetch_page(1)
         if paging["page_count"] > max_pages:
