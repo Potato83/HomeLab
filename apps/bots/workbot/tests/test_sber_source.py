@@ -137,7 +137,7 @@ class SberSourceTests(unittest.TestCase):
         self.assertEqual(row.cities, ['г Санкт-Петербург'])
 
     def test_unknown_references_and_ignored_category_filter_are_errors(self):
-        for changes in [dict(specializationId='guard'), dict(specialization='Охранник'),
+        for changes in [dict(specializationId='guard'),
                         dict(workScheduleId=999), dict(experienceId='new'), dict(specializationId=None)]:
             with self.subTest(changes=changes), self.assertRaises(ParseError):
                 self.parse([vacancy(**changes)])

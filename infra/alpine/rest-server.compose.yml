@@ -1,0 +1,22 @@
+services:
+  rest-server:
+    image: docker.io/restic/rest-server@sha256:d2aff06f47eb38637dff580c3e6bce4af98f386c396a25d32eb6727ec96214a5
+    container_name: rest_server
+    restart: unless-stopped
+    user: "1004:1004"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=16m"]
+    mem_limit: 512m
+    memswap_limit: 512m
+    pids_limit: 64
+    cpus: 1
+    ports: ["10.69.67.1:8000:8000"]
+    volumes: ["/srv/restic:/data"]
+    environment:
+      OPTIONS: "--private-repos --append-only"
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10mb

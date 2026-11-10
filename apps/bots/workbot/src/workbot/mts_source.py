@@ -165,5 +165,5 @@ def collect_mts(settings, client, rules):
         if len(rows) != paging["total"]:
             raise ParseError("МТС: получена неполная поисковая выдача")
         unique.update((v.external_id, v) for v in rows)
-    # Only fetch individual descriptions for plausible security candidates.
-    return [detail(v) if v.active and needs_detail(v, rules) else v for v in unique.values()]
+    # The reduced bot displays API cards; avoid fetching hundreds of detail pages.
+    return list(unique.values())

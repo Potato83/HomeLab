@@ -115,18 +115,11 @@ def parse_publication(row, base_url, categories, experiences, schedules, allow_u
     reported_category = text_field(row, 'specialization')
     unknown_category = allow_unknown_category and not reported_category
     category = '' if unknown_category else reference(row, 'specializationId', categories)
-    # The public dictionaries and publications use two official labels for
-    # this same stable ID. Other disagreements still invalidate the snapshot.
-    aliases = {'информационные технологии:программист, разработчик': {'it: разработка'},
-               'информационные технологии:специалист технической поддержки': {'it: поддержка, devops и администрирование'},
-               'информационные технологии:руководитель проектов': {'it: внедрение'},
-               'информационные технологии:аналитик': {'it: системная аналитика и архитектура'},
-               'информационные технологии:тестировщик': {'it: тестирование (qa)'},
-               'автомобильный бизнес:менеджер по продажам, менеджер по работе с клиентами': {'розничный бизнес (обслуживание)'},
-               'управление персоналом, тренинги:менеджер по персоналу': {'управление персоналом'}}
-    valid_names = {normalize(category), *aliases.get(normalize(category), set())} if category else set()
-    if not unknown_category and (not category or normalize(reported_category) not in valid_names):
-        raise ParseError('Сбер: API проигнорировал фильтр категорий или изменил справочник')
+    # A stable selected ID is the filter boundary. Display labels can be
+    # renamed independently by the dictionary and publication endpoints.
+    if not unknown_category and not category:
+        raise ParseError('Сбер: неизвестная категория')
+    category = reported_category or category
     experience = reference(row, 'experienceId', experiences)
     schedule = reference(row, 'workScheduleId', schedules)
     body = [text_field(row, key) for key in ('introduction', 'duties', 'requirements')]

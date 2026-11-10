@@ -36,15 +36,15 @@ def parse_yandex(html, url):
             link = url
         else:
             identifier = link.rstrip('/').rsplit('/', 1)[-1]
-        text = status.get_text(" ", strip=True).lower()
-        if "набор открыт" not in text and "набор закрыт" not in text:
-            raise ParseError("Яндекс: неизвестный статус набора")
+        from .program_sources import recruitment_state
+        state = recruitment_state(status.get_text(" ", strip=True))
         description = item.select_one(".description")
         result.append(Vacancy("yandex", identifier,
                               f"Стажировка: {name}", "Яндекс", link,
                               description.get_text(" ", strip=True) if description else "",
                               categories=[name], level="intern",
-                              active="набор открыт" in text))
+                              active=state is not False,
+                              recruitment_status='unknown' if state is None else 'open' if state else 'closed'))
     if not result:
         raise ParseError("Яндекс: не найдены карточки; возможно, изменилась страница")
     return list({v.external_id: v for v in result}.values())
@@ -293,10 +293,5 @@ def collect(name, settings, client, rules):
             raise ParseError("Kaspersky: пагинация вернула повторную страницу")
         rows.extend(new)
         seen.update(v.external_id for v in new)
-    result = []
-    for v in rows:
-        # Fetch descriptions for security candidates, including titles without junior markers.
-        if needs_detail(v, rules):
-            v = parse_kaspersky_detail(client.get(v.url), v)
-        result.append(v)
-    return result
+    # Catalogue metadata is sufficient now that career/location gates are gone.
+    return rows

@@ -3,10 +3,12 @@ import re
 import socket
 import time
 import ssl
+from http.client import HTTPSConnection
+from urllib.parse import urlsplit
 from contextlib import contextmanager
 from threading import Event, Lock, Thread
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen, build_opener, HTTPRedirectHandler
+from urllib.request import Request, urlopen, build_opener, HTTPRedirectHandler, HTTPSHandler
 from . import __version__
 from .limits import (DEFAULT_SCAN_TIMEOUT_SECONDS, MAX_HTTP_BYTES_PER_SCAN,
                      MAX_HTTP_REQUESTS_PER_SCAN, MAX_HTTP_RESPONSE_BYTES)
@@ -29,10 +31,35 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
+def russian_host(url):
+    host = (urlsplit(url).hostname or '').rstrip('.').lower()
+    try:
+        host = host.encode('idna').decode('ascii')
+    except UnicodeError:
+        return False
+    return host.endswith(('.ru', '.xn--p1ai'))
+
+
+class RegionalHTTPS(HTTPSHandler):
+    """Select TLS policy for each request, including a redirected request."""
+    def __init__(self, verify_ru_tls=True):
+        super().__init__()
+        self.relaxed = None
+        if not verify_ru_tls:
+            self.relaxed = ssl.create_default_context()
+            self.relaxed.check_hostname = False
+            self.relaxed.verify_mode = ssl.CERT_NONE
+            self.relaxed.set_alpn_protocols(['http/1.1'])
+
+    def https_open(self, request):
+        context = self.relaxed if self.relaxed is not None and russian_host(request.full_url) else self._context
+        return self.do_open(HTTPSConnection, request, context=context)
+
+
 class HttpClient:
     def __init__(self, timeout=25, delay=0.5, *, scan_timeout=DEFAULT_SCAN_TIMEOUT_SECONDS,
                  cancel_event=None, max_requests=MAX_HTTP_REQUESTS_PER_SCAN,
-                 max_bytes=MAX_HTTP_BYTES_PER_SCAN):
+                 max_bytes=MAX_HTTP_BYTES_PER_SCAN, verify_ru_tls=True):
         self.timeout = timeout
         self.delay = delay
         self.last_request = 0.0
@@ -43,6 +70,7 @@ class HttpClient:
         self.request_count = 0
         self.bytes_received = 0
         self._limits_lock = Lock()
+        self.https = RegionalHTTPS(verify_ru_tls)
 
     @contextmanager
     def source_window(self, sources_left):
@@ -106,7 +134,8 @@ class HttpClient:
             request_headers = {"User-Agent": f"WorkBot/{__version__} (personal vacancy monitor)", "Accept": "text/html"}
             request_headers.update(headers or {})
             req = Request(url, headers=request_headers)
-            opener = urlopen if follow_redirects else build_opener(NoRedirect()).open
+            handlers = [self.https] + ([] if follow_redirects else [NoRedirect()])
+            opener = build_opener(*handlers).open
             connect_timeout = request_deadline - time.monotonic()
             if connect_timeout <= 0:
                 self._check_active()

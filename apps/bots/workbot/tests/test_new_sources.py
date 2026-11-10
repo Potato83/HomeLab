@@ -48,7 +48,7 @@ class NewSourceTests(unittest.TestCase):
             def get(self,url):
                 return habr_html() if url==settings['url'] else '<h1>Стажёр SOC</h1><div class="vacancy-description__text">Анализ SIEM</div><aside>Senior, гибрид</aside>'
         row=collect_habr(settings,Client(),self.rules)[0]
-        self.assertIn('SIEM',row.description);self.assertNotIn('Senior',row.description)
+        self.assertEqual(row.description,'')  # Catalogue card; no detail request required.
     def test_habr_later_page_count_change_error(self):
         settings=self.config['sources']['habr'];self.rules['include_words']=[]
         class Client:
@@ -69,7 +69,7 @@ class NewSourceTests(unittest.TestCase):
                 if 'cursor=2' in url:return ya_page([ya_row(2)],total=2)
                 return detail
         rows=collect_yandex_jobs(settings,Client(),self.rules)
-        self.assertEqual(len(rows),2);self.assertNotIn('Бенефиты',rows[0].description)
+        self.assertEqual(len(rows),2);self.assertEqual(rows[0].description,'Стажировка')
     def test_yandex_cursor_host_rejected_before_fetch(self):
         settings=self.config['sources']['yandex_jobs'];calls=[]
         class Client:

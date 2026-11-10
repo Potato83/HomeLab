@@ -178,3 +178,32 @@ def test_expired_queue_entry_does_not_block_live_announcements(config,store):
     assert deliver(store,telegram,[v.source],10,delay=0,rules=config['filters']) == 0
     assert store.pending([v.source],10) == []
     telegram.send.assert_not_called()
+
+def test_unrecognised_yandex_intake_is_explicitly_unverified(config):
+    from workbot.sources import parse_yandex
+    html='<section class="lc-features__item"><div class="card"><div class="recruitment">Набор начнётся позже</div><h4 class="card-heading">DevOps</h4></div></section>'
+    row=parse_yandex(html,'https://yandex.ru/yaintern/internship')[0]
+    assert row.recruitment_status=='unknown'
+    assert decide(row,config['filters']).warnings
+
+def test_sber_stable_category_id_survives_a_display_label_rename():
+    from workbot.sber_source import parse_publication
+    from tests.test_sber_source import vacancy, CATEGORIES, EXPERIENCES, SCHEDULES
+    row=parse_publication(vacancy(specialization='IT: Информационная безопасность'),
+                          'https://rabota.sber.ru',CATEGORIES,EXPERIENCES,SCHEDULES)
+    assert row.categories==['IT: Информационная безопасность']
+
+def test_mts_api_cards_do_not_trigger_mass_detail_requests(config):
+    from workbot.mts_source import collect_mts
+    from tests.test_mts_source import row, page
+    client=Mock()
+    client.get.return_value=page([row(title='Senior SOC')])
+    settings=load_config(str(Path(__file__).parents[1]/'config.toml'))['sources']['mts']
+    result=collect_mts(settings|{'search_terms':['SOC'],'page_size':1},client,config['filters'])
+    assert len(result)==1
+    assert client.get.call_count==1
+
+def test_tls_flag_requires_a_boolean(config):
+    config['monitor']['verify_ru_tls']='false'
+    with pytest.raises(ValueError,match='verify_ru_tls'):
+        validate_config(config)

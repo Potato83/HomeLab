@@ -82,24 +82,9 @@ def habr_page(html, page, query=None):
 
 
 def collect_habr(settings, client, rules):
-    from .directions import search_terms, selected
-    queries = ([None] if 'security' in selected(rules) else []) + search_terms(rules)
-    unique = {}
-    for query in queries:
-        for v in collect_habr_query(settings, client, rules, query):
-            if v.external_id in unique and unique[v.external_id] != v:
-                raise ParseError('Хабр Карьера: карточка изменилась между запросами')
-            unique[v.external_id] = v
-    for v in unique.values():
-        if v.active and needs_detail(v, rules):
-            doc = soup(client.get(v.url))
-            title, body = doc.select_one('h1'), doc.select_one('.vacancy-description__text')
-            if not title or not body or normalize(title.get_text(' ', strip=True)) != normalize(v.title):
-                raise ParseError('Хабр Карьера: нет собственного описания или изменилось название')
-            v.description = body.get_text('\n', strip=True)
-            if v.work_format == 'unknown':
-                v.work_format = infer_format(v.description)
-    return list(unique.values())
+    # This source is the configured curated catalogue, not eleven overlapping
+    # site-wide searches. Metadata suffices for the short notification cards.
+    return collect_habr_query(settings, client, rules, None)
 
 
 def collect_habr_query(settings, client, rules, query):
@@ -174,7 +159,8 @@ def collect_yandex_jobs(settings, client, rules):
     rows, seen, urls, expected = [], set(), set(), None
     for _ in range(max_pages):
         parts = urlsplit(url)
-        if parts.scheme != 'https' or parts.netloc != 'yandex.ru' or parts.path != '/jobs/api/jobs/publications/' or parts.fragment:
+        url = parts._replace(path=parts.path.rstrip('/')).geturl()
+        if parts.scheme != 'https' or parts.netloc != 'yandex.ru' or parts.path.rstrip('/') != '/jobs/api/jobs/publications' or parts.fragment:
             raise ParseError('Яндекс вакансии: неизвестный адрес следующей страницы')
         if url in urls:
             raise ParseError('Яндекс вакансии: цикл пагинации')
@@ -193,15 +179,4 @@ def collect_yandex_jobs(settings, client, rules):
         raise ParseError('Яндекс вакансии: превышен max_pages')
     if len(rows) != expected:
         raise ParseError('Яндекс вакансии: неполная выдача')
-    for v in rows:
-        if v.active and needs_detail(v, rules):
-            doc = soup(client.get(v.url))
-            title = doc.select_one('h1')
-            sections = []
-            for heading in doc.select('h2'):
-                if normalize(heading.get_text(' ', strip=True)) in ('какие задачи вас ждут', 'мы ждем, что вы'):
-                    sections.append(heading.parent.get_text('\n', strip=True))
-            if not title or normalize(title.get_text(' ', strip=True)) != normalize(v.title) or len(sections) != 2:
-                raise ParseError('Яндекс вакансии: не найдены собственные задачи и требования')
-            v.description += '\n' + '\n'.join(sections)
     return rows

@@ -1,18 +1,13 @@
 [monitor]
+verify_ru_tls = true
 interval_seconds = 3600
 request_timeout_seconds = 25
 request_delay_seconds = 0.5
 scan_timeout_seconds = 600
 max_messages_per_cycle = 10
 
-[alerts]
-enabled = true
-# Оба порога должны быть достигнуты. Одно предупреждение на непрерывный сбой.
-failure_threshold = 3
-min_failure_seconds = 3600
-
 [keywords]
-include = ["безопасност", "security", "SOC", "SIEM", "AppSec", "DevSecOps", "DevOps", "SRE", "MLOps", "CTF", "пентест"]
+include = ["информационная безопасност", "информационной безопасност", "кибербезопас", "security", "SOC", "SIEM", "AppSec", "DevSecOps", "DevOps", "SRE", "MLOps", "CTF", "пентест"]
 exclude = []
 
 [sources.yandex]
@@ -94,7 +89,7 @@ max_pages = 50
 [sources.yandex_jobs]
 enabled = true
 url = "https://yandex.ru/jobs/vacancies"
-api_url = "https://yandex.ru/jobs/api/jobs/publications/?page_size=40"
+api_url = "https://yandex.ru/jobs/api/jobs/publications?page_size=100"
 max_pages = 50
 
 [sources.ctftime]

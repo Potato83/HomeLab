@@ -26,6 +26,7 @@ class BackgroundScan:
                     result = scan(snapshot, client=HttpClient(
                         m['request_timeout_seconds'], m['request_delay_seconds'],
                         scan_timeout=m.get('scan_timeout_seconds', 600),
+                        verify_ru_tls=m.get('verify_ru_tls', True),
                         cancel_event=self.cancelled))
                 self.results.put((result, None))
             except Cancelled:

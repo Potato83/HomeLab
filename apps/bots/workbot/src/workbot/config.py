@@ -9,7 +9,8 @@ from .limits import MAX_SOURCE_PAGES
 SOURCES = {'yandex', 'kaspersky', 'bastion', 'croc', 'croc_internships', 'mts',
            'x5_internships', 'pt_start_training', 'pt_fast_track', 'sber', 'hh',
            'habr', 'yandex_jobs', 'ctftime', 'ods_events'}
-DEFAULT_WORDS = ['безопасност', 'security', 'SOC', 'SIEM', 'AppSec',
+DEFAULT_WORDS = ['информационная безопасност', 'информационной безопасност',
+                 'кибербезопас', 'security', 'SOC', 'SIEM', 'AppSec',
                  'DevSecOps', 'DevOps', 'SRE', 'MLOps', 'CTF', 'пентест']
 
 def validate_url(value, field):
@@ -44,6 +45,8 @@ def load_config(path):
 
 def validate_config(config, require_enabled=True):
     monitor = config.setdefault('monitor', {})
+    if type(monitor.setdefault('verify_ru_tls', True)) is not bool:
+        raise ValueError('verify_ru_tls: требуется true/false')
     defaults = dict(interval_seconds=3600, request_timeout_seconds=25,
                     request_delay_seconds=0.5, scan_timeout_seconds=600,
                     max_messages_per_cycle=10)

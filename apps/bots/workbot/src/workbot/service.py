@@ -11,7 +11,8 @@ log = logging.getLogger(__name__)
 def scan(config, store=None, client=None):
     m = config['monitor']
     client = client or HttpClient(m['request_timeout_seconds'], m['request_delay_seconds'],
-                                  scan_timeout=m['scan_timeout_seconds'])
+                                  scan_timeout=m['scan_timeout_seconds'],
+                                  verify_ru_tls=m.get('verify_ru_tls', True))
     output = {'sources': {}, 'vacancies': []}
     rules = collection_rules(config['filters'])
     enabled = [(name, source) for name, source in config['sources'].items() if source.get('enabled')]
