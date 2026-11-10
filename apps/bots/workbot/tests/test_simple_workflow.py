@@ -154,3 +154,27 @@ def test_bounded_retry_and_long_retry_after_are_respected():
     with patch.object(client,'_get_once',side_effect=FetchError('HTTP 403')) as fetch:
         with pytest.raises(FetchError):client.get('https://example.org')
         assert fetch.call_count == 1
+
+def test_yandex_programme_without_detail_link_keeps_own_identity():
+    from workbot.sources import parse_yandex
+    html = '<section class="lc-features__item"><div class="card"><div class="recruitment">Набор открыт</div><h4 class="card-heading">DevOps</h4></div></section>'
+    first = parse_yandex(html, 'https://yandex.ru/yaintern/internship')[0]
+    assert first.url == 'https://yandex.ru/yaintern/internship'
+    assert first.external_id.startswith('direction-')
+    assert first.external_id == parse_yandex(html,'https://yandex.ru/yaintern/internship')[0].external_id
+
+def test_slow_provider_cannot_use_the_next_providers_time():
+    client = HttpClient(scan_timeout=600)
+    original = client.deadline
+    with client.source_window(3):
+        assert 190 < original - client.deadline < 410
+    assert client.deadline == original
+
+def test_expired_queue_entry_does_not_block_live_announcements(config,store):
+    v = job(kind='event', title='CTF', start_at='2020-01-01T00:00:00Z', end_at='2020-01-02T00:00:00Z')
+    from workbot.models import Decision
+    store.save_snapshot(v.source,[(v,Decision(True,'CTF'))])
+    telegram = Mock()
+    assert deliver(store,telegram,[v.source],10,delay=0,rules=config['filters']) == 0
+    assert store.pending([v.source],10) == []
+    telegram.send.assert_not_called()

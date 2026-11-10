@@ -3,6 +3,7 @@ import re
 import socket
 import time
 import ssl
+from contextlib import contextmanager
 from threading import Event, Lock, Thread
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen, build_opener, HTTPRedirectHandler
@@ -42,6 +43,16 @@ class HttpClient:
         self.request_count = 0
         self.bytes_received = 0
         self._limits_lock = Lock()
+
+    @contextmanager
+    def source_window(self, sources_left):
+        # Reserve a fair share of the remaining wall time for later providers.
+        deadline = self.deadline
+        self.deadline = min(deadline, time.monotonic() + max(0, deadline - time.monotonic()) / sources_left)
+        try:
+            yield
+        finally:
+            self.deadline = deadline
 
     def get(self, url, *, headers=None, follow_redirects=False):
         for attempt in range(3):

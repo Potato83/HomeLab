@@ -29,12 +29,18 @@ def parse_yandex(html, url):
         links = [urljoin(url, a["href"]) for a in item.select("a[href]")]
         link = next((x for x in links if x.startswith("https://yandex.ru/yaintern/") and x != url), None)
         if not link:
-            raise ParseError("Яндекс: отсутствует ссылка направления")
+            # Some genuine directions have only an application form. Their
+            # catalogue page remains the source; do not invent a detail URL.
+            from hashlib import sha256
+            identifier = 'direction-' + sha256(normalize(name).encode()).hexdigest()[:16]
+            link = url
+        else:
+            identifier = link.rstrip('/').rsplit('/', 1)[-1]
         text = status.get_text(" ", strip=True).lower()
         if "набор открыт" not in text and "набор закрыт" not in text:
             raise ParseError("Яндекс: неизвестный статус набора")
         description = item.select_one(".description")
-        result.append(Vacancy("yandex", link.rstrip("/").rsplit("/", 1)[-1],
+        result.append(Vacancy("yandex", identifier,
                               f"Стажировка: {name}", "Яндекс", link,
                               description.get_text(" ", strip=True) if description else "",
                               categories=[name], level="intern",
@@ -217,8 +223,10 @@ def parse_croc_detail(html, vacancy):
 
 
 def needs_detail(vacancy, rules):
-    # A keyword may occur only in the job description, at any seniority level.
-    return vacancy.active
+    # Enrich relevant catalogue/API candidates at every seniority level.
+    # Fetching every unrelated detail page can consume the entire scan budget.
+    return vacancy.active and contains(rules['security_patterns'],
+        ' '.join([vacancy.title, *vacancy.categories, vacancy.description]))
 
 
 def collect(name, settings, client, rules):

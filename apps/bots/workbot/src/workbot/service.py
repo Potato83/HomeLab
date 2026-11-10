@@ -1,4 +1,5 @@
 import logging
+from contextlib import nullcontext
 from .http import FetchError, HttpClient, RequestCancelled
 from .matching import decide
 from .models import Vacancy, Decision
@@ -13,11 +14,12 @@ def scan(config, store=None, client=None):
                                   scan_timeout=m['scan_timeout_seconds'])
     output = {'sources': {}, 'vacancies': []}
     rules = collection_rules(config['filters'])
-    for name, source in config['sources'].items():
-        if not source.get('enabled'):
-            continue
+    enabled = [(name, source) for name, source in config['sources'].items() if source.get('enabled')]
+    for index, (name, source) in enumerate(enabled):
         try:
-            rows = collect(name, source_settings(name, source, rules), client, rules)
+            window = client.source_window(len(enabled) - index) if isinstance(client, HttpClient) else nullcontext()
+            with window:
+                rows = collect(name, source_settings(name, source, rules), client, rules)
             records = [(v, decide(v, rules)) for v in rows]
             if len({v.external_id for v, _ in records}) != len(records):
                 raise ParseError('Источник вернул повторные идентификаторы')
