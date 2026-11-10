@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
-from aiogram.types import ChatPermissions
+from .restrictions import mute_if_unrestricted
 
 from .economy import (
     SleepCharge,
@@ -55,11 +55,10 @@ async def _apply_sleep(
     until_date = max(charge.until_date, latest_deadline or 0)
 
     try:
-        await bot.restrict_chat_member(
-            chat_id=chat_id,
-            user_id=target_id,
-            permissions=ChatPermissions(can_send_messages=False),
-            until_date=datetime.fromtimestamp(until_date, timezone.utc),
+        # An ambiguous earlier request may already have succeeded. If the
+        # member is now restricted, preserve it and finish without replaying.
+        await mute_if_unrestricted(
+            bot, chat_id, target_id, datetime.fromtimestamp(until_date, timezone.utc)
         )
     except (TelegramBadRequest, TelegramForbiddenError):
         logger.warning(

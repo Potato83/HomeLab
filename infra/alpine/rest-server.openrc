@@ -1,0 +1,28 @@
+#!/sbin/openrc-run
+description="Authenticated append-only Restic repository"
+
+depend() {
+    need localmount net
+    after nftables
+}
+
+start() {
+    ebegin "Starting rest_server"
+    /usr/bin/podman start rest_server >/dev/null
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping rest_server"
+    /usr/bin/podman stop --time 15 rest_server >/dev/null
+    eend $?
+}
+
+status() {
+    if [ "$(/usr/bin/podman inspect --format '{{.State.Running}}' rest_server 2>/dev/null)" = true ]; then
+        einfo "status: started"
+        return 0
+    fi
+    einfo "status: stopped"
+    return 3
+}

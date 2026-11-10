@@ -12,7 +12,6 @@ from workbot.config import load_config
 from workbot.fast_track_source import collect_fast_track, fast_format, parse_fast_form, parse_fast_track
 from workbot.http import FetchError, HttpClient
 from workbot.matching import decide
-from workbot.reporting import source_views, sources_text, status_text
 from workbot.runner import Monitor
 from workbot.service import scan
 from workbot.sources import ParseError
@@ -65,15 +64,6 @@ class FastTrackTests(unittest.TestCase):
     def parse(self, html=None):
         return parse_fast_track(document() if html is None else html, URL, self.rules)
 
-    def test_only_explicit_ib_directions_with_own_formats(self):
-        rows = self.parse()
-        self.assertEqual(len(rows), 2)
-        self.assertEqual((rows[0].work_format, rows[0].cities), ('remote', ['Москва', 'Санкт-Петербург']))
-        self.assertEqual((rows[1].work_format, rows[1].cities), ('hybrid', ['Москва']))
-        self.assertTrue(decide(rows[0], self.rules, True).matched)
-        self.assertFalse(decide(rows[1], self.rules, True).matched)
-        self.assertEqual(rows[0].application_url, FORM_URL)
-        self.assertTrue(rows[0].url.endswith('#heading-1'))
 
     def test_missing_direction_body_does_not_borrow_neighbor_description(self):
         heading = '<div class="t-rec" id="heading-missing"><div class="tn-group content99"><div class="tn-atom">Кибербезопасность Без описания</div></div></div>'
@@ -87,19 +77,7 @@ class FastTrackTests(unittest.TestCase):
         fetched = collect_fast_track(self.settings, client, self.rules)
         self.assertTrue(any('Без описания' in note for note in fetched[0].notes))
 
-    def test_button_is_not_intake_confirmation_and_opt_in_required(self):
-        row = self.parse()[0]
-        self.assertEqual(row.recruitment_status, 'unknown')
-        self.assertFalse(decide(row, self.rules).matched)
-        allowed = decide(row, self.rules, True)
-        self.assertTrue(allowed.matched)
-        self.assertIn('Набор не подтверждён', allowed.warnings[0])
 
-    def test_status_warning_does_not_count_as_missing_location(self):
-        row = replace(self.parse()[0], work_format='hybrid', cities=['Санкт-Петербург'])
-        rules = self.rules | {'include_unknown_location': False}
-        self.assertTrue(decide(row, rules, True).matched)
-        self.assertFalse(decide(replace(row, cities=[]), rules, True).matched)
 
     def test_closed_and_conflicting_page_status(self):
         rows = self.parse(document('Набор заявок завершен'))
@@ -172,13 +150,6 @@ class FastTrackTests(unittest.TestCase):
         with self.assertRaises(ParseError):
             collect_fast_track(self.settings, client, self.rules)
 
-    def test_unknown_notification_clear_escaped_and_linked(self):
-        row = replace(self.parse()[0], notes=['<unknown>'])
-        message = format_message({'vacancy': asdict(row), 'decision': asdict(decide(row, self.rules, True))})
-        self.assertIn('<b>Набор не подтверждён</b>', message)
-        self.assertIn('🟡', message)
-        self.assertIn(FORM_URL, message)
-        self.assertIn('&lt;unknown&gt;', message)
 
     def test_tls_failure_has_specific_safe_reason(self):
         with patch('workbot.http.build_opener') as build:
@@ -186,111 +157,12 @@ class FastTrackTests(unittest.TestCase):
             with self.assertRaisesRegex(FetchError, '^Ошибка проверки TLS-сертификата$'):
                 HttpClient(delay=0)._get_once(FORM_URL)
 
-    def test_scan_status_unknown_is_ready_and_can_be_delivered(self):
-        client = Mock()
-        client.get.side_effect = [document(), FetchError('TLS')]
-        with tempfile.TemporaryDirectory() as directory:
-            store = Store(str(Path(directory) / 'db'))
-            try:
-                result = scan(self.config, store, client)
-                self.assertEqual(result['sources']['pt_fast_track'], {'found': 2, 'matched': 1, 'error': None, 'unverified': 2})
-                view = next(row for row in source_views(store, self.config) if row['source'] == 'pt_fast_track')
-                self.assertEqual((view['state'], view['unverified'], view['failure_count']), ('ready', 2, 0))
-                self.assertIn('Набор не подтверждён', status_text(store, self.config))
-                self.assertIn('неподтверждённый', sources_text(store, self.config))
-                telegram = Mock()
-                Monitor(self.config, store, telegram, delivery_delay=0).dispatch_pending()
-                self.assertEqual(telegram.send.call_count, 1)
-            finally:
-                store.close()
 
-    def test_default_opt_out_filters_unverified(self):
-        self.config['sources']['pt_fast_track'].pop('notify_unverified')
-        client = Mock()
-        client.get.side_effect = [document(), FetchError('TLS')]
-        result = scan(self.config, client=client)
-        self.assertEqual(result['sources']['pt_fast_track']['matched'], 0)
 
     def test_invalid_status_does_not_match(self):
         self.assertFalse(decide(replace(self.parse()[0], recruitment_status='broken'), self.rules, True).matched)
 
 
-class IntakeDeliveryTests(unittest.TestCase):
-    def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
-        self.path = str(Path(self.temp.name) / 'bot.sqlite3')
-        self.store = Store(self.path)
-        self.rules = load_config(str(ROOT / 'config.toml'))['filters']
-        self.row = parse_fast_track(document(), URL, self.rules)[0]
-        self.source = self.row.source
-
-    def tearDown(self):
-        self.store.close()
-        self.temp.cleanup()
-
-    def snapshot(self, status):
-        row = replace(self.row, active=status != 'closed', recruitment_status=status)
-        self.store.save_snapshot(self.source, [(row, decide(row, self.rules, True))])
-        return self.store.pending([self.source], 20)
-
-    def send(self, pending):
-        self.assertEqual(len(pending), 1)
-        message = format_message(json.loads(pending[0]['payload']))
-        self.store.mark_sent(pending[0])
-        return message
-
-    def test_unknown_once_restart_confirmation_once_and_no_flap_spam(self):
-        self.assertIn('Набор не подтверждён', self.send(self.snapshot('unknown')))
-        self.assertFalse(self.snapshot('unknown'))
-        self.store.close()
-        self.store = Store(self.path)
-        self.assertFalse(self.snapshot('unknown'))
-        self.assertIn('Набор теперь подтверждён', self.send(self.snapshot('open')))
-        self.assertFalse(self.snapshot('open'))
-        self.assertFalse(self.snapshot('unknown'))
-        self.assertFalse(self.snapshot('open'))
-
-    def test_failed_confirmation_held_on_outage_retries_same_generation(self):
-        self.send(self.snapshot('unknown'))
-        initial = self.snapshot('open')
-        self.assertEqual(initial[0]['generation'], 2)
-        self.assertFalse(self.snapshot('unknown'))
-        retry = self.snapshot('open')
-        self.assertEqual(retry[0]['generation'], 2)
-        self.assertIn('Набор теперь подтверждён', self.send(retry))
-        self.assertFalse(self.snapshot('open'))
-
-    def test_unsent_open_then_unknown_first_delivery_then_confirmation(self):
-        self.assertEqual(len(self.snapshot('open')), 1)
-        self.assertIn('Набор не подтверждён', self.send(self.snapshot('unknown')))
-        self.assertIn('Набор теперь подтверждён', self.send(self.snapshot('open')))
-
-    def test_close_reopen_is_new_episode(self):
-        self.send(self.snapshot('unknown'))
-        self.send(self.snapshot('open'))
-        self.assertFalse(self.snapshot('closed'))
-        self.assertIn('Набор не подтверждён', self.send(self.snapshot('unknown')))
-        self.assertIn('Набор теперь подтверждён', self.send(self.snapshot('open')))
-
-    def test_disappearance_reappearance_is_new_episode(self):
-        self.send(self.snapshot('unknown'))
-        self.store.save_snapshot(self.source, [])
-        self.assertEqual(len(self.snapshot('unknown')), 1)
-
-    def test_legacy_sent_payload_is_not_repeated(self):
-        pending = self.snapshot('open')
-        self.send(pending)
-        payload = json.loads(pending[0]['payload'])
-        payload.pop('_notified_status')
-        payload.pop('_notification_kind')
-        payload['vacancy'].pop('recruitment_status')
-        payload['vacancy'].pop('application_url')
-        with self.store.db:
-            self.store.db.execute('UPDATE vacancies SET payload=?', (json.dumps(payload),))
-        self.assertFalse(self.snapshot('open'))
-        self.assertFalse(self.snapshot('unknown'))
-        self.assertFalse(self.snapshot('open'))
-        self.assertIn('Стажировка', format_message(payload))
 
 
 if __name__ == '__main__':

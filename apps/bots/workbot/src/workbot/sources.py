@@ -26,9 +26,6 @@ def parse_yandex(html, url):
         if not card or not status:
             continue
         name = heading.get_text(" ", strip=True)
-        # Only explicit security internship directions, not other programs/events.
-        if not re.search(r"security|\bsoc\b|приватност|[cс]ompliance", name, re.I):
-            continue
         links = [urljoin(url, a["href"]) for a in item.select("a[href]")]
         link = next((x for x in links if x.startswith("https://yandex.ru/yaintern/") and x != url), None)
         if not link:
@@ -40,10 +37,10 @@ def parse_yandex(html, url):
         result.append(Vacancy("yandex", link.rstrip("/").rsplit("/", 1)[-1],
                               f"Стажировка: {name}", "Яндекс", link,
                               description.get_text(" ", strip=True) if description else "",
-                              categories=["Информационная безопасность"], level="intern",
+                              categories=[name], level="intern",
                               active="набор открыт" in text))
     if not result:
-        raise ParseError("Яндекс: не найдены карточки ИБ; возможно, изменилась страница")
+        raise ParseError("Яндекс: не найдены карточки; возможно, изменилась страница")
     return list({v.external_id: v for v in result}.values())
 
 
@@ -72,6 +69,9 @@ def parse_kaspersky_list(html, base_url):
 
 
 def parse_kaspersky_detail(html, vacancy):
+    from .structured import enrich_job
+    if enrich_job(html, vacancy):
+        return vacancy
     doc = soup(html)
     body = doc.select_one('[data-testid="vacancy-body"]')
     title = doc.select_one('[data-testid="vacancy-title"]')
@@ -138,6 +138,9 @@ def parse_bastion_list(html, base_url):
 
 
 def parse_bastion_detail(html, vacancy):
+    from .structured import enrich_job
+    if enrich_job(html, vacancy):
+        return vacancy
     doc = soup(html)
     title = doc.select_one('h1.hero__title')
     blocks = doc.select('#vacancy-info .vacancy-info__block[data-tab="1"] .vacancy-info-card__text, '
@@ -197,6 +200,9 @@ def parse_croc_list(html, base_url, expected_count):
 
 
 def parse_croc_detail(html, vacancy):
+    from .structured import enrich_job
+    if enrich_job(html, vacancy):
+        return vacancy
     doc = soup(html)
     main = doc.select_one('.vacancy-detail__content-main')
     title = main.select_one('h1') if main else None
@@ -211,7 +217,8 @@ def parse_croc_detail(html, vacancy):
 
 
 def needs_detail(vacancy, rules):
-    return vacancy.level not in ('experienced', 'middle', 'senior', 'lead') and contains(rules["security_patterns"], " ".join([vacancy.title, *vacancy.categories])) and not contains(rules["senior_title_patterns"], vacancy.title)
+    # A keyword may occur only in the job description, at any seniority level.
+    return vacancy.active
 
 
 def collect(name, settings, client, rules):
@@ -281,7 +288,7 @@ def collect(name, settings, client, rules):
     result = []
     for v in rows:
         # Fetch descriptions for security candidates, including titles without junior markers.
-        if contains(rules["security_patterns"], " ".join([v.title, *v.categories])) and not contains(rules["senior_title_patterns"], v.title):
+        if needs_detail(v, rules):
             v = parse_kaspersky_detail(client.get(v.url), v)
         result.append(v)
     return result

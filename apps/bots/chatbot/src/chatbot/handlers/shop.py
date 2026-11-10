@@ -8,7 +8,6 @@ from datetime import datetime, timedelta, timezone
 from aiogram import F, Router, html, types
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.filters import Command
-from aiogram.types import ChatPermissions
 
 from .helpers import real_user_id
 from ..services.economy import (
@@ -34,6 +33,7 @@ from ..services.loans import (
     issue_loan,
 )
 from ..services.moderation import SLEEP_ACTION_LOCK
+from ..services.restrictions import is_unrestricted_member, mute_if_unrestricted
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -111,24 +111,20 @@ async def _process_sleep_action(
     chat_id = message.chat.id
     operation_key = f"sleep:{chat_id}:{message.message_id}"
     charge = await asyncio.to_thread(get_sleep_action, operation_key)
+    created = charge is None
     if charge is None:
         duration = await asyncio.to_thread(get_sleep_duration, chat_id)
         try:
-            member = await message.bot.get_chat_member(chat_id, target_id)
+            unrestricted = await is_unrestricted_member(message.bot, chat_id, target_id)
         except (TelegramBadRequest, TelegramForbiddenError):
             await message.answer("Не получилось проверить цель. Оплата не списана.")
             return
 
-        now = datetime.now(timezone.utc)
-        current_until = getattr(member, "until_date", None)
-        if current_until and current_until.tzinfo is None:
-            current_until = current_until.replace(tzinfo=timezone.utc)
-        extended = bool(current_until and current_until > now)
-        until_date = (
-            current_until + timedelta(minutes=duration)
-            if extended
-            else now + timedelta(minutes=duration)
-        )
+        if not unrestricted:
+            await message.answer("У участника уже есть ограничения или особая роль. Оплата не списана.")
+            return
+        extended = False
+        until_date = datetime.now(timezone.utc) + timedelta(minutes=duration)
     try:
         if charge is None:
             charge = await asyncio.to_thread(
@@ -174,12 +170,17 @@ async def _process_sleep_action(
         return
 
     try:
-        await message.bot.restrict_chat_member(
-            chat_id=chat_id,
-            user_id=target_id,
-            permissions=ChatPermissions(can_send_messages=False),
-            until_date=datetime.fromtimestamp(charge.until_date, timezone.utc),
+        applied = await mute_if_unrestricted(
+            message.bot, chat_id, target_id,
+            datetime.fromtimestamp(charge.until_date, timezone.utc),
         )
+        if not applied:
+            if created:
+                await asyncio.to_thread(refund_sleep, chat_id, attacker_id, charge)
+            else:
+                await asyncio.to_thread(mark_sleep_applied, charge)
+            await message.answer("Действующие ограничения сохранены. Новое ограничение не применено.")
+            return
         await asyncio.to_thread(mark_sleep_applied, charge)
     except (TelegramBadRequest, TelegramForbiddenError):
         logger.warning(

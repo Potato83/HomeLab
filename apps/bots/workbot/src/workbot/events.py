@@ -4,25 +4,15 @@ import json
 import re
 from urllib.parse import urlencode
 from urllib.parse import urlsplit
+from .matching import decide as decide_event
 from .http import FetchError
 from .event_details import enrich_terms, cancelled_title, last_known_cancellation
 from .config import validate_url
-from .directions import matches
-from .models import Vacancy, Decision, normalize
+from .models import Vacancy, normalize
 from .sources import ParseError, soup
 from .limits import MAX_SOURCE_PAGES
 
 EVENT_SOURCES = {'ctftime', 'ods_events'}
-
-
-def beginner_status(v):
-    """Return true/false only for explicit audience statements; otherwise unknown."""
-    text = normalize(' '.join([v.title, *v.categories, v.description]))
-    if re.search(r'не\s+(?:для\s+)?начинающ|not\s+for\s+beginners?|experienced\s+only|только\s+для\s+опытн', text):
-        return False
-    if re.search(r'для\s+(?:самых\s+)?начинающ|для\s+новичк|без\s+опыта|опыт\s+не\s+(?:требуется|обязателен)|можно\s+без\s+опыта|начальн\w*\s+уров|подходит\s+новичк|no\s+(?:prior\s+)?experience\s+(?:required|needed)|beginner(?:-friendly|s\s+welcome)|entry[- ]level', text):
-        return True
-    return None
 
 
 def instant(value):
@@ -36,72 +26,6 @@ def instant(value):
 
 def event_now():
     return datetime.now(timezone.utc)
-
-
-def decide_event(v, rules):
-    if not rules.get('events_enabled', False):
-        return Decision(False, 'Мероприятия отключены')
-    if v.event_check_error:
-        return Decision(False, 'Не удалось перепроверить карточку мероприятия')
-    if not v.active or v.event_status == 'cancelled':
-        return Decision(False, 'Мероприятие завершено или отменено')
-    try:
-        start, end = instant(v.start_at), instant(v.end_at)
-        current = event_now()
-        if end <= current or start > current + timedelta(days=rules.get('event_days', 90)):
-            return Decision(False, 'Мероприятие вне выбранного периода')
-        if end < start:
-            return Decision(False, 'Противоречивые даты мероприятия')
-    except ValueError:
-        return Decision(False, 'Не подтверждены даты мероприятия')
-    labels = matches(' '.join([v.title, *v.categories]), rules)
-    if not labels:
-        return Decision(False, 'Нет выбранного направления мероприятия')
-    audience = rules.get('event_audience', 'any')
-    suitability = beginner_status(v)
-    audience_warning = []
-    if audience == 'beginner' and suitability is not True:
-        return Decision(False, 'Пригодность для начинающих не подтверждена')
-    if audience == 'beginner_or_unknown' and suitability is not True:
-        if suitability is False:
-            return Decision(False, 'Мероприятие предназначено только для опытных участников')
-        audience_warning.append('Уровень мероприятия не указан — проверьте требования')
-    from .event_details import terms_decision
-    rejection = terms_decision(v, rules)
-    if rejection:
-        return Decision(False, rejection)
-    if v.event_type not in rules.get('event_types', ['ctf', 'meetup', 'hackathon', 'conference', 'webinar', 'unknown']):
-        return Decision(False, 'Тип мероприятия исключён настройками')
-    if v.work_format != 'unknown' and v.work_format not in rules.get('event_formats', ['remote', 'office', 'hybrid']):
-        return Decision(False, 'Формат мероприятия исключён настройками')
-    if v.recruitment_status == 'closed':
-        return Decision(False, 'Регистрация закрыта')
-    if v.recruitment_status not in ('open', 'unknown'):
-        return Decision(False, 'Неизвестный статус регистрации')
-    warnings = audience_warning
-    if rules.get('event_price') == 'free_or_unknown' and v.price_kind == 'unknown':
-        warnings.append('Бесплатное участие не подтверждено — уточните стоимость')
-    if v.recruitment_status == 'unknown':
-        if not rules.get('event_unverified', True):
-            return Decision(False, 'Регистрация не подтверждена')
-        warnings.append('Регистрация не подтверждена — проверьте условия организатора')
-    if v.registration_deadline:
-        try:
-            if instant(v.registration_deadline) <= current:
-                return Decision(False, 'Срок регистрации истёк')
-        except ValueError:
-            return Decision(False, 'Неизвестный срок регистрации')
-    if v.work_format not in ('remote', 'office', 'hybrid', 'unknown'):
-        return Decision(False, 'Неизвестный формат мероприятия')
-    if v.work_format != 'remote':
-        in_city = any(re.search(p, normalize(' '.join(v.cities)), re.I) for p in rules['city_patterns'])
-        if v.cities and not in_city and v.work_format in ('office', 'hybrid'):
-            return Decision(False, 'Очное мероприятие вне выбранных городов')
-        if not v.cities or v.work_format == 'unknown':
-            if not rules.get('include_unknown_location', True):
-                return Decision(False, 'Не хватает данных о расположении мероприятия')
-            warnings.append('Город или формат мероприятия нужно уточнить')
-    return Decision(True, ' / '.join(labels) + ' · мероприятие', warnings)
 
 
 def safe_link(url):

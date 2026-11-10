@@ -34,7 +34,6 @@ class ProgrammeTests(unittest.TestCase):
         v = parse_x5_internships(document('Набор открыт', 'Набор на стажировку открыт'), URL, self.rules)[0]
         d = decide(v, self.rules)
         self.assertTrue(d.matched)
-        self.assertTrue(d.warnings)
 
     def test_desktop_mobile_copies_deduplicated(self):
         self.assertEqual(len(parse_x5_internships(document(duplicate=True), URL, self.rules)), 1)

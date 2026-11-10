@@ -2,7 +2,7 @@
 
 Личный проект эксплуатации Alpine-сервера: Telegram-боты, AI gateway, мониторинг и документация. Публичный проект для портфолио.
 
-- `apps/bots/`: ServerBot, ChatBot, WorkBot и AgentBot.
+- `apps/bots/`: ServerBot, ChatBot и WorkBot.
 - `services/omniroute/`: описание AI gateway и безопасные примеры конфигурации.
 - `infra/alpine/`: особенности текущей ОС. Другие ОС добавляются при реальной миграции.
 - `docs/`: архитектура, настройка, эксплуатация.

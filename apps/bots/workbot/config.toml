@@ -3,7 +3,7 @@ interval_seconds = 3600
 request_timeout_seconds = 25
 request_delay_seconds = 0.5
 scan_timeout_seconds = 600
-max_messages_per_cycle = 20
+max_messages_per_cycle = 10
 
 [alerts]
 enabled = true
@@ -11,24 +11,9 @@ enabled = true
 failure_threshold = 3
 min_failure_seconds = 3600
 
-[filters]
-directions = ["security", "devsecops", "devops", "mlops"]
-min_salary = 0
-employment_types = ["any"]
-events_enabled = true
-event_cancellations = true
-event_updates = true
-event_languages = ["any"]
-event_price = "any"
-event_audience = "any"
-event_unverified = true
-event_days = 90
-# Стажировки и junior по выбранным направлениям; ИБ-словарь используется группой security.
-security_patterns = ["информационн.{0,5} безопасност", "\\bиб\\b", "кибербезопасност", "защит.{0,12}(информац|данных|приватност)", "\\b(cybersecurity|cyber security|security|soc|siem|appsec|pentest|devsecops|dfir|compliance)\\b", "penetration test", "threat (intelligence|hunting)", "анализ.{0,15}защищенн", "уязвимост", "пентест", "криптограф", "вредоносн", "malware|reverse engineering"]
-junior_patterns = ["стаж[её]р", "стажиров", "\\b(junior|intern|internship|trainee|entry.level)\\b", "начинающ", "младш", "без опыта", "опыт.{0,25}не (требуется|обязателен)"]
-senior_title_patterns = ["\\b(senior|middle|lead|principal|head|manager)\\b", "ведущ", "старш", "руководител", "начальник"]
-city_patterns = ["санкт[ -]петербург", "\\bспб\\b", "saint[ -]petersburg", "st[ .-]*petersburg"]
-include_unknown_location = true
+[keywords]
+include = ["безопасност", "security", "SOC", "SIEM", "AppSec", "DevSecOps", "DevOps", "SRE", "MLOps", "CTF", "пентест"]
+exclude = []
 
 [sources.yandex]
 enabled = true

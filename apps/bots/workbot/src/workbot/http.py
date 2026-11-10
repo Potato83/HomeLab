@@ -1,4 +1,5 @@
 import json
+import re
 import socket
 import time
 import ssl
@@ -11,7 +12,11 @@ from .limits import (DEFAULT_SCAN_TIMEOUT_SECONDS, MAX_HTTP_BYTES_PER_SCAN,
 
 
 class FetchError(RuntimeError):
-    pass
+    def __init__(self, message, *, status=None, retry_after=None):
+        super().__init__(message)
+        if status is None and (match := re.fullmatch(r'HTTP (\d{3})', message)):
+            status = int(match[1])
+        self.status, self.retry_after = status, retry_after
 
 
 class RequestCancelled(RuntimeError):
@@ -39,13 +44,18 @@ class HttpClient:
         self._limits_lock = Lock()
 
     def get(self, url, *, headers=None, follow_redirects=False):
-        for attempt in range(2):
+        for attempt in range(3):
             try:
                 return self._get_once(url, headers=headers, follow_redirects=follow_redirects)
             except FetchError as exc:
-                if attempt or str(exc) in ("HTTP 400", "HTTP 401", "HTTP 403", "HTTP 404", "HTTP 429"):
+                transient = exc.status is None or exc.status in (408, 429, 500, 502, 503, 504)
+                if attempt == 2 or not transient:
                     raise
-                self._wait(2)
+                delay = exc.retry_after if exc.retry_after is not None else 2 ** (attempt + 1)
+                # Do not retry before a provider's long Retry-After deadline.
+                if delay > 60 or delay >= self.deadline - time.monotonic():
+                    raise
+                self._wait(delay)
 
     def _check_active(self):
         if self.cancel_event is not None and self.cancel_event.is_set():
@@ -150,7 +160,20 @@ class HttpClient:
                 return raw.decode(response.headers.get_content_charset() or "utf-8")
         except HTTPError as exc:
             self._check_active()
-            raise FetchError(f"HTTP {exc.code}") from None
+            retry_after = None
+            value = exc.headers.get('Retry-After', '') if exc.headers else ''
+            try:
+                retry_after = max(0, int(value))
+            except ValueError:
+                if value:
+                    from email.utils import parsedate_to_datetime
+                    from datetime import datetime, timezone
+                    try:
+                        retry_after = max(0, (parsedate_to_datetime(value) - datetime.now(timezone.utc)).total_seconds())
+                    except (ValueError, TypeError, OverflowError):
+                        pass
+            exc.close()
+            raise FetchError(f"HTTP {exc.code}", status=exc.code, retry_after=retry_after) from None
         except URLError as exc:
             self._check_active()
             if isinstance(exc.reason, ssl.SSLCertVerificationError):
@@ -158,7 +181,7 @@ class HttpClient:
             raise FetchError("Ошибка сети, TLS или таймаут") from None
         except RequestCancelled:
             raise
-        except (TimeoutError, OSError, UnicodeError):
+        except (TimeoutError, OSError, UnicodeError, LookupError):
             self._check_active()
             raise FetchError("Ошибка сети, TLS или таймаут") from None
         finally:

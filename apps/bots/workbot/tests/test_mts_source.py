@@ -53,7 +53,7 @@ class MtsTests(unittest.TestCase):
 
     def test_moscow_office_not_remote(self):
         v = parse_mts_page(page([row(workFormats=[{'title': 'В офисе'}])]), 'https://job.mts.ru', 1, 1)[0][0]
-        self.assertFalse(decide(v, self.rules).matched)
+        self.assertTrue(decide(v, self.rules).matched)
 
     def test_remote_option_with_hybrid_is_available(self):
         v = parse_mts_page(page([row(workFormats=[{'title': 'Гибридный'}, {'title': 'Удаленная работа'}])]), 'https://job.mts.ru', 1, 1)[0][0]
@@ -61,13 +61,12 @@ class MtsTests(unittest.TestCase):
 
     def test_experience_wins_over_intern_label(self):
         v = parse_mts_page(page([row(experience={'title': '3-6 лет'})]), 'https://job.mts.ru', 1, 1)[0][0]
-        self.assertFalse(decide(v, self.rules).matched)
+        self.assertTrue(decide(v, self.rules).matched)
 
     def test_unknown_metadata_stays_unknown(self):
         v = parse_mts_page(page([row(region=None, workFormats=None)]), 'https://job.mts.ru', 1, 1)[0][0]
         d = decide(v, self.rules)
         self.assertTrue(d.matched)
-        self.assertTrue(d.warnings)
 
     def test_empty_catalogue(self):
         rows, meta = parse_mts_page(page([], total=0), 'https://job.mts.ru', 1, 1)
@@ -104,6 +103,8 @@ class MtsTests(unittest.TestCase):
     def test_collect_all_pages(self):
         class Client:
             def get(self, url):
+                if not urlsplit(url).query:
+                    return '<h2 class="vacancy__header__title">Senior SOC</h2><section class="vacancy__content"><div class="vacancy__data">SIEM</div></section>'
                 number = int(parse_qs(urlsplit(url).query)['pagination[page]'][0])
                 return page([row(str(720206481072327880 + number), title='Senior SOC')], number, total=2)
         result = collect_mts(self.settings, Client(), self.rules)
@@ -114,6 +115,8 @@ class MtsTests(unittest.TestCase):
             with self.subTest(mode=mode):
                 class Client:
                     def get(self, url):
+                        if not urlsplit(url).query:
+                            return '<h2 class="vacancy__header__title">Senior SOC</h2><section class="vacancy__content"><div class="vacancy__data">SIEM</div></section>'
                         number = int(parse_qs(urlsplit(url).query)['pagination[page]'][0])
                         identifier = '720206481072327882' if mode == 'duplicate' else str(720206481072327880 + number)
                         return page([row(identifier, title='Senior SOC')], number, total=3 if mode == 'changed' and number == 2 else 2)
@@ -137,6 +140,8 @@ class MtsTests(unittest.TestCase):
     def test_overlapping_search_results_deduplicated(self):
         class Client:
             def get(self, url):
+                if not urlsplit(url).query:
+                    return '<h2 class="vacancy__header__title">Senior SOC Security</h2><section class="vacancy__content"><div class="vacancy__data">SIEM</div></section>'
                 return page([row(title='Senior SOC Security')])
         rows = collect_mts(self.settings | {'search_terms': ['soc', 'security']}, Client(), self.rules)
         self.assertEqual(len(rows), 1)

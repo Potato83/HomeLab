@@ -1,190 +1,122 @@
-import logging
+import json
 import time
-from copy import deepcopy
-from .settings import effective_config
-
-from .health import deliver_health
+from dataclasses import asdict
+from .background import BackgroundScan
+from .config import validate_config, words
 from .http import FetchError
-from .profile_matching import combined_collection_filters, decide_profiles
-from .schedule import allows_scan
-from .service import scan
-from .storage import now
-from .telegram import deliver, deliver_digest, deliver_event_cancellations
+from .service import apply_result
+from .reporting import status_text
+from .telegram import deliver, format_message
 
-log = logging.getLogger(__name__)
-
+HELP = (
+    '/jobs [слово] — последние 5 вакансий\n'
+    '/events [слово] — последние 5 событий\n'
+    '/keywords — слова поиска\n'
+    '/keywords SOC, DevOps, CTF — заменить слова\n'
+    '/exclude слово, фраза — исключить; /exclude - — очистить\n'
+    '/check — обновить источники\n/status — ошибки и результаты источников\n'
+    'Новые совпадения приходят автоматически. Поиск без учёта регистра; '
+    'длинные слова можно задавать частью слова. Несколько слов разделяются запятыми.'
+)
 
 class Monitor:
-    def __init__(self, config, store, telegram, clock=None, delivery_delay=1.1):
-        self.base_config, self.store, self.telegram = deepcopy(config), store, telegram
-        self.config = effective_config(config, store)
-        self.clock = clock or time.monotonic
+    def __init__(self, config, store, telegram, *, clock=time.monotonic, delivery_delay=0.2):
+        self.config, self.store, self.telegram, self.clock = config, store, telegram, clock
         self.delivery_delay = delivery_delay
-        self.next_scan = 0.0
-        self.next_delivery = 0.0
-        self.enabled = [name for name, settings in self.config['sources'].items() if settings.get('enabled')]
-        self.source_due = {name: 0.0 for name in self.enabled}
-        self.revision = 0
-        self.background = None
-        if telegram is not None:
-            self.store.refilter(self.config)
+        self.revision, self.background = 0, None
+        self.deadlines = {}
+        saved = store.get_state('keywords_v2')
+        if saved:
+            self.config['keywords'] = json.loads(saved)
+            validate_config(self.config)
+        store.refilter(self.config['filters'])
 
-    def reload_settings(self):
-        updated = effective_config(self.base_config, self.store)
-        if updated == self.config:
-            return
-        self.revision += 1
-        if self.background:
-            self.background.close()
-        if any(updated['monitor'].get(key) != self.config['monitor'].get(key) for key in ('delivery_mode', 'digest_seconds')):
-            self.store.set_state('digest_next_at', '')
-        self.config = updated
-        self.enabled = [name for name, settings in self.config['sources'].items() if settings.get('enabled')]
-        self.source_due = {name: 0.0 for name in self.enabled}
-        self.next_scan = 0.0
-        self.store.refilter(self.config)
-
-    def _dispatch(self):
-        sent = {'alerts': 0, 'vacancies': 0}
-        if self.config['monitor'].get('paused'):
-            return sent
-        # Calendar dates/deadlines can expire between network checks.
-        self.store.refilter(self.config, events_only=True)
-        errors = []
-        try:
-            sent['alerts'] = deliver_health(self.store, self.telegram, self.config, delay=self.delivery_delay)
-        except FetchError as exc:
-            errors.append(str(exc))
-        # An alert delivery problem must not block vacancy delivery attempts.
-        checking = set(self.background.due) if self.background else set()
-        healthy = [row['source'] for row in self.store.status()
-                   if row['source'] in self.enabled and row['error'] is None and row['source'] not in checking]
-        try:
-            settings = self.config['monitor']
-            if settings.get('delivery_mode', 'instant') == 'digest':
-                sent['vacancies'] = deliver_event_cancellations(
-                    self.store, self.telegram, healthy, settings['max_messages_per_cycle'], delay=self.delivery_delay)
-                next_at = self.store.get_state('digest_next_at')
-                if not next_at:
-                    self.store.set_state('digest_next_at', time.time() + settings.get('digest_seconds', 3600))
-                elif time.time() >= float(next_at):
-                    remaining = max(0, settings['max_messages_per_cycle'] - sent['vacancies'])
-                    if remaining:
-                        sent['vacancies'] += deliver_digest(self.store, self.telegram, healthy, remaining, delay=self.delivery_delay)
-                    self.store.set_state('digest_next_at', time.time() + settings.get('digest_seconds', 3600))
-            else:
-                sent['vacancies'] = deliver_event_cancellations(
-                    self.store, self.telegram, healthy, settings['max_messages_per_cycle'], delay=self.delivery_delay)
-                remaining = max(0, settings['max_messages_per_cycle'] - sent['vacancies'])
-                if remaining:
-                    sent['vacancies'] += deliver(self.store, self.telegram, healthy, remaining, delay=self.delivery_delay)
-        except FetchError as exc:
-            errors.append(str(exc))
-        if errors:
-            self.store.set_state('last_delivery_error', '; '.join(errors))
-            self.store.set_state('last_delivery_error_at', now())
-            raise FetchError('; '.join(errors))
-        if sum(sent.values()):
-            self.store.set_state('last_delivery_error', '')
-        return sent
+    @property
+    def enabled(self):
+        return [n for n, s in self.config['sources'].items() if s.get('enabled')]
 
     def request_check(self, force=True):
-        from .background import BackgroundScan
-        if self.background or self.config['monitor'].get('paused'):
+        if self.background:
             return False
-        if not force and not allows_scan(self.config['monitor'].get('schedule', 'off')):
-            self.next_scan = self.clock() + 60
-            return False
-        filters = combined_collection_filters(self.config)
-        due = [name for name in self.enabled if (force or self.source_due.get(name, 0) <= self.clock())
-               and (name not in ('ctftime', 'ods_events') or filters.get('events_enabled', False))]
+        due = [n for n in self.enabled if force or self.clock() >= self.deadlines.get(n, 0)]
         if not due:
-            self.next_scan = self.clock() + self.config['monitor']['interval_seconds']
             return False
-        snapshot = deepcopy(self.config)
-        if filters.get('event_cancellations', True) or filters.get('event_updates', True):
-            for name in due:
-                if name in ('ctftime', 'ods_events'):
-                    snapshot['sources'][name]['_watched_events'] = self.store.watched_events(name)
-        self.background = BackgroundScan(snapshot, self.revision, due)
+        self.background = BackgroundScan(self.config, self.revision, due)
         return True
 
     def run_background(self):
         if self.background:
-            finished = self.background.poll()
-            if finished is not None:
-                job, self.background = self.background, None
-                result, error = finished
-                if job.revision == self.revision and not self.config['monitor'].get('paused'):
-                    for name in job.due:
-                        self.source_due[name] = self.clock() + self.config['sources'][name].get('interval_seconds', self.config['monitor']['interval_seconds'])
-                    self.next_scan = min(self.source_due.values(), default=float('inf'))
-                    if error:
-                        self.store.set_state('last_scan_error', error)
-                        with self.store.cycle_lock():
-                            for name in job.due:
-                                self.store.source_error(name, error)
-                    else:
-                        from .models import Vacancy
-                        with self.store.cycle_lock():
-                            for name, summary in result['sources'].items():
-                                if summary.get('error'):
-                                    self.store.source_error(name, summary['error'])
-                                else:
-                                    vacancies = [Vacancy(**item['vacancy']) for item in result['vacancies'] if item['vacancy']['source'] == name]
-                                    self.store.save_snapshot(name, [(v, decide_profiles(v, self.config, self.config['sources'][name].get('notify_unverified', False))) for v in vacancies], rules=combined_collection_filters(self.config))
-                            self.store.set_state('last_scan_error', '')
-                        self.dispatch_pending()
-        if self.config['monitor'].get('paused'):
+            completed = self.background.poll()
+            if completed is None:
+                return
+            worker, self.background = self.background, None
+            result, error = completed
+            if worker.revision != self.revision:
+                return  # The owner changed keywords during this scan.
+            for name in worker.due:
+                source = self.config['sources'][name]
+                self.deadlines[name] = self.clock() + source.get('interval_seconds', self.config['monitor']['interval_seconds'])
+            if error:
+                for name in worker.due:
+                    self.store.source_error(name, error)
+            else:
+                apply_result(self.store, result)
+                self.dispatch_pending()
+        self.request_check(force=False)
+
+    def dispatch_pending(self):
+        return deliver(self.store, self.telegram, self.enabled,
+                       self.config['monitor']['max_messages_per_cycle'],
+                       delay=self.delivery_delay, rules=self.config['filters'])
+
+    def set_words(self, field, value):
+        updated = dict(self.config['keywords'])
+        updated[field] = words(value, allow_empty=field == 'exclude')
+        self.config['keywords'] = updated
+        validate_config(self.config)
+        self.store.set_state('keywords_v2', json.dumps(updated, ensure_ascii=False))
+        self.store.refilter(self.config['filters'])
+        self.revision += 1
+        self.deadlines.clear()
+        if self.background:
+            self.background.close()
+
+    def handle(self, update):
+        command = self.telegram.command(update)
+        if not command:
             return
-        if not self.background and self.clock() >= self.next_scan:
-            self.request_check(force=False)
-        elif self.clock() >= self.next_delivery:
-            self.dispatch_pending()
+        args = self.telegram.arguments(update)
+        if command in ('/start', '/help', '/menu'):
+            self.telegram.send(HELP, reply_markup={'remove_keyboard': True})
+        elif command in ('/keywords', '/exclude'):
+            field = 'include' if command == '/keywords' else 'exclude'
+            if args:
+                self.set_words(field, [] if field == 'exclude' and args == '-' else args.split(','))
+            from html import escape
+            self.telegram.send(escape('Поиск: ' + ', '.join(self.config['keywords']['include']) +
+                                     '\nИсключения: ' + (', '.join(self.config['keywords']['exclude']) or 'нет')))
+        elif command in ('/jobs', '/events'):
+            kind = 'event' if command == '/events' else 'vacancy'
+            rows = self.store.search(kind, self.config['filters'], self.enabled, args)
+            if not rows:
+                self.telegram.send('Совпадений в последней проверке нет. Обновить: /check')
+            for row in rows:
+                self.telegram.send(format_message(row))
+        elif command == '/status':
+            self.telegram.send(('Проверка выполняется.\n' if self.background else '') + status_text(self.store, self.config))
+        elif command == '/check':
+            previous = float(self.store.get_state('manual_check_at', '0'))
+            if time.time() - previous < 60:
+                self.telegram.send('Повторная проверка доступна через минуту.')
+            else:
+                started = self.request_check()
+                if started:
+                    self.store.set_state('manual_check_at', time.time())
+                self.telegram.send('Проверка запущена. Результаты придут автоматически.' if started else 'Проверка уже выполняется.')
+        else:
+            self.telegram.send('Справка: /help')
 
     def close(self):
         if self.background:
             self.background.close()
-
-    def check_and_dispatch(self, force=True):
-        # Schedule before work, and again after completion. Delivery failures must
-        # not cause the full source scan to restart every minute.
-        self.next_scan = self.clock() + self.config['monitor']['interval_seconds']
-        self.next_delivery = self.clock() + 60
-        due = [name for name in self.enabled if force or self.source_due.get(name, 0) <= self.clock()]
-        selected = deepcopy(self.config)
-        for name, source in selected['sources'].items():
-            source['enabled'] = name in due
-        try:
-            with self.store.cycle_lock():
-                result = scan(selected, self.store) if due else {'sources': {}, 'vacancies': []}
-                sent = self._dispatch()
-                log.info('Проверка завершена: %s; отправлено: %s', result['sources'], sent)
-                return int(any(row.get('error') for row in result['sources'].values()))
-        finally:
-            for name in due:
-                self.source_due[name] = self.clock() + self.config['sources'][name].get('interval_seconds', self.config['monitor']['interval_seconds'])
-            self.next_scan = min((self.source_due[name] for name in self.enabled), default=float('inf'))
-            self.next_delivery = self.clock() + 60
-
-    def dispatch_pending(self):
-        self.next_delivery = self.clock() + 60
-        try:
-            with self.store.cycle_lock():
-                return self._dispatch()
-        finally:
-            self.next_delivery = self.clock() + 60
-
-    def run_due(self):
-        if self.config['monitor'].get('paused'):
-            return None
-        if self.clock() >= self.next_scan:
-            if not allows_scan(self.config['monitor'].get('schedule', 'off')):
-                self.next_scan = self.clock() + 60
-                if self.clock() >= self.next_delivery:
-                    return self.dispatch_pending()
-                return None
-            return self.check_and_dispatch(force=False)
-        if self.clock() >= self.next_delivery:
-            return self.dispatch_pending()
-        return None
+            self.background.thread.join(timeout=2)

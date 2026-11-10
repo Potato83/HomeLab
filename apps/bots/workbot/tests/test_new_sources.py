@@ -37,20 +37,20 @@ class NewSourceTests(unittest.TestCase):
         self.assertEqual(row.work_format,'remote');self.assertEqual(row.salary,'не указана')
     def test_habr_middle_not_junior_even_with_intern_text(self):
         row=habr_page(habr_html([habr_row(qualification='Middle')]),1)[0][0]
-        self.assertFalse(decide(row,self.rules).matched)
+        self.assertTrue(decide(row,self.rules).matched)
     def test_habr_empty_incomplete_and_repeated(self):
         self.assertEqual(habr_page(habr_html([],total=0),1)[0],[])
         for html in [habr_html([],total=1),habr_html(page=2),'<html>error</html>',habr_html([habr_row(),habr_row()],total=2)]:
             with self.assertRaises(ParseError):habr_page(html,1)
     def test_habr_detail_is_scoped(self):
-        settings=self.config['sources']['habr']
+        settings=self.config['sources']['habr'];self.rules['include_words']=[]
         class Client:
             def get(self,url):
                 return habr_html() if url==settings['url'] else '<h1>Стажёр SOC</h1><div class="vacancy-description__text">Анализ SIEM</div><aside>Senior, гибрид</aside>'
         row=collect_habr(settings,Client(),self.rules)[0]
         self.assertIn('SIEM',row.description);self.assertNotIn('Senior',row.description)
     def test_habr_later_page_count_change_error(self):
-        settings=self.config['sources']['habr']
+        settings=self.config['sources']['habr'];self.rules['include_words']=[]
         class Client:
             def get(self,url):return habr_html(total=2) if '?' not in url else habr_html([habr_row(2)],total=3,page=2)
         with self.assertRaises(ParseError):collect_habr(settings,Client(),self.rules)

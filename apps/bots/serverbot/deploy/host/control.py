@@ -14,7 +14,7 @@ from pathlib import Path
 
 BASE = Path('/var/lib/homelab-control')
 BOOT_ID = Path('/proc/sys/kernel/random/boot_id')
-SERVICES = ('chatbot', 'workbot', 'agentbot', 'omniroute')
+SERVICES = ('chatbot', 'workbot', 'omniroute')
 TARGETS = ('kali', *SERVICES)
 ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LC_ALL': 'C',
        'HOME': '/root', 'PYTHONDONTWRITEBYTECODE': '1'}
@@ -24,7 +24,6 @@ CHECKS = {
     'kali': ('vm:kali', 'vm:ssh'),
     'chatbot': ('service:chatbot', 'bot:chatbot', 'bot:chatbot-db'),
     'workbot': ('service:workbot', 'bot:workbot', 'bot:workbot-db'),
-    'agentbot': ('service:agentbot', 'bot:agentbot'),
     'omniroute': ('service:omniroute', 'gateway:health'),
 }
 

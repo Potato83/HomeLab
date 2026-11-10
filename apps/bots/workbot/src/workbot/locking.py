@@ -17,7 +17,7 @@ def database_path(value):
 def file_lock(path, message, error_type=RuntimeError):
     import fcntl
     path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     # Keep the file after unlock. Removing it can create two independently locked inodes.
     with path.open('a') as handle:
         try:

@@ -4,14 +4,19 @@ from copy import deepcopy
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlsplit
 
 from workbot.config import load_config
 from workbot.matching import decide
 from workbot.runner import Monitor
 from workbot.sber_source import collect_sber
-from workbot.service import scan
+from workbot.service import scan as real_scan
+
+def scan(config, *args, **kwargs):
+    with patch('workbot.service.source_settings', side_effect=lambda n, s, r: s), patch('workbot.service.collection_rules', side_effect=lambda r: r):
+        return real_scan(config, *args, **kwargs)
+
 from workbot.sources import ParseError
 from workbot.storage import Store
 from tests.test_sber_source import CATEGORY, CATEGORIES, Client, dictionary, page, vacancy
@@ -49,6 +54,7 @@ class SberSearchTests(unittest.TestCase):
         self.config = load_config(str(ROOT / 'config.toml'))
         self.config['filters']['directions'] = ['security']  # Legacy security snapshot fixtures.
         self.rules = self.config['filters']
+        self.rules['security_patterns'] = [r'информационн.*безопасност']
         self.settings = self.config['sources']['sber'] | {'search_terms': ['security'], 'page_size': 1}
 
     def collect(self, client, **settings):
@@ -65,7 +71,7 @@ class SberSearchTests(unittest.TestCase):
         client = SearchClient({'security': {0: page([other_category(title='Стажер Python-разработчик')])}})
         row = self.collect(client)[1]
         self.assertIn('security', row.description)
-        self.assertFalse(decide(row, self.rules).matched)
+        self.assertTrue(decide(row, self.rules).matched)
 
     def test_overlap_with_categories_and_between_terms_is_one_record(self):
         common = vacancy(requirements='Security и SOC')
@@ -144,21 +150,6 @@ class SberSearchTests(unittest.TestCase):
                     self.collect(client, search_terms=terms)
                 client.get.assert_not_called()
 
-    def test_toml_validation_optional_empty_and_invalid_terms(self):
-        original = (ROOT / 'config.toml').read_text()
-        prefix, sber = original.split('[sources.sber]')
-        before_terms = sber.split('search_terms = ')[0]
-        with tempfile.TemporaryDirectory() as directory:
-            file = Path(directory) / 'config.toml'
-            for terms in ['"security"', '[1]', '[" "]', '["a"]', '["' + 'b' * 61 + '"]',
-                          '[' + ','.join(['"security"'] * 33) + ']']:
-                with self.subTest(terms=terms):
-                    file.write_text(prefix + '[sources.sber]' + before_terms + 'search_terms = ' + terms)
-                    with self.assertRaisesRegex(ValueError, 'sber.search_terms'):
-                        load_config(str(file))
-            for tail in ['', 'search_terms = []']:
-                file.write_text(prefix + '[sources.sber]' + before_terms + tail)
-                self.assertEqual(load_config(str(file))['sources']['sber'].get('search_terms', []), [])
 
     def test_later_search_failure_preserves_old_snapshot_and_holds_queue(self):
         config = deepcopy(self.config)

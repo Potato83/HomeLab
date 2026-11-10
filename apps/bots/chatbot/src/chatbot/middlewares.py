@@ -9,10 +9,11 @@ from typing import Any, Awaitable, Callable
 
 from aiogram import BaseMiddleware
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
-from aiogram.types import ChatPermissions, Message
+from aiogram.types import Message
 
 from . import config
 from .database import save_user_data
+from .services.restrictions import mute_if_unrestricted
 
 logger = logging.getLogger(__name__)
 
@@ -104,12 +105,10 @@ class AntiSpamMiddleware(BaseMiddleware):
             minutes=self.mute_minutes
         )
         try:
-            await event.bot.restrict_chat_member(
-                chat_id=event.chat.id,
-                user_id=event.from_user.id,
-                permissions=ChatPermissions(can_send_messages=False),
-                until_date=until_date,
-            )
+            if not await mute_if_unrestricted(
+                event.bot, event.chat.id, event.from_user.id, until_date
+            ):
+                return None
             await event.answer(
                 f"🔇 Слишком много сообщений. Перерыв {self.mute_minutes} минут."
             )

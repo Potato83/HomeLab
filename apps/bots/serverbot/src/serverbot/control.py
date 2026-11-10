@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 
 LABELS = {'kali': 'Kali', 'chatbot': 'ChatBot', 'workbot': 'WorkBot',
-          'agentbot': 'AgentBot', 'omniroute': 'OmniRoute'}
+          'omniroute': 'OmniRoute'}
 STATES = {'running': 'Работает', 'stopped': 'Остановлен', 'unknown': 'Состояние неизвестно'}
 ICONS = {'running': '🟢', 'stopped': '⚪', 'unknown': '🟡'}
 ERRORS = {

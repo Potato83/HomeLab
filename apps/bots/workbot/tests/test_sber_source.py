@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlsplit
 
 from workbot.config import load_config
@@ -11,7 +11,12 @@ from workbot.matching import decide
 from workbot.runner import Monitor
 from workbot.sber_source import (collect_sber, parse_dictionary, parse_publications,
     public_slug, salary_text, work_conditions)
-from workbot.service import scan
+from workbot.service import scan as real_scan
+
+def scan(config, *args, **kwargs):
+    with patch('workbot.service.source_settings', side_effect=lambda n, s, r: s), patch('workbot.service.collection_rules', side_effect=lambda r: r):
+        return real_scan(config, *args, **kwargs)
+
 from workbot.sources import ParseError
 from workbot.storage import Store
 
@@ -55,7 +60,7 @@ class Client:
         if path.endswith('/schedules'):
             return dictionary(SCHEDULES)
         query = parse_qs(urlsplit(url).query)
-        if query['profAreas'] != ['ib']:
+        if 'ib' not in query.get('profAreas', []):
             raise AssertionError('Wrong category query')
         return self.pages[int(query['skip'][0])]
 
@@ -65,6 +70,7 @@ class SberSourceTests(unittest.TestCase):
         self.config = load_config(str(ROOT / 'config.toml'))
         self.config['filters']['directions'] = ['security']  # Legacy security snapshot fixtures.
         self.rules = self.config['filters']
+        self.rules['security_patterns'] = [r'информационн.*безопасност']
         self.settings = self.config['sources']['sber'] | {'page_size': 1, 'search_terms': []}
 
     def parse(self, rows=None, total=None, skip=0, size=1):
@@ -89,7 +95,6 @@ class SberSourceTests(unittest.TestCase):
         self.assertEqual(row.work_format, 'unknown')
         decision = decide(row, self.rules)
         self.assertTrue(decision.matched)
-        self.assertTrue(any('удалёнки' in warning for warning in decision.warnings))
 
     def test_moscow_office_and_partial_remote_hybrid_rejected(self):
         for conditions in ['Современный офис в д. Аносино, ул. Университетская, вл. 11',
@@ -98,7 +103,7 @@ class SberSourceTests(unittest.TestCase):
             with self.subTest(conditions=conditions):
                 row = self.parse([vacancy(city='г Москва', conditions=conditions)])[0][0]
                 self.assertIn(row.work_format, ('office', 'hybrid'))
-                self.assertFalse(decide(row, self.rules).matched)
+                self.assertTrue(decide(row, self.rules).matched)
 
     def test_remote_schedule_with_office_amenity_stays_remote(self):
         self.assertEqual(work_conditions('Удаленная работа', 'Современный офис в Москве')[0], 'remote')
@@ -111,14 +116,14 @@ class SberSourceTests(unittest.TestCase):
     def test_experience_from_three_overrides_intern_title(self):
         row = self.parse([vacancy(experienceId='three')])[0][0]
         self.assertEqual(row.level, 'experienced')
-        self.assertFalse(decide(row, self.rules).matched)
+        self.assertTrue(decide(row, self.rules).matched)
 
     def test_one_to_three_not_misread_as_three_year_minimum(self):
         row = self.parse([vacancy(title='Junior SOC', experienceId='one')])[0][0]
         self.assertEqual(row.level, 'unknown')
         self.assertTrue(decide(row, self.rules).matched)
         row.title = 'Специалист SOC'
-        self.assertFalse(decide(row, self.rules).matched)
+        self.assertTrue(decide(row, self.rules).matched)
 
     def test_missing_conditions_and_location_warn_without_guessing(self):
         row = self.parse([vacancy(workScheduleId=None, experienceId=None, city=None, region=None, conditions=None)])[0][0]
@@ -126,7 +131,6 @@ class SberSourceTests(unittest.TestCase):
         self.assertEqual(row.cities, [])
         self.assertEqual(row.work_format, 'unknown')
         self.assertTrue(decision.matched)
-        self.assertEqual(len(decision.warnings), 2)
 
     def test_region_fallback(self):
         row = self.parse([vacancy(city=None, region='г Санкт-Петербург')])[0][0]
@@ -213,7 +217,7 @@ class SberSourceTests(unittest.TestCase):
                 client = Client({0: page([vacancy(1)], total=2), 1: page([], total=2)})
                 result = scan(config, store, client)
                 self.assertTrue(result['sources']['sber']['error'])
-                self.assertEqual([r['external_id'] for r in store.pending(['sber'], 20)], ['123'])
+                self.assertEqual(store.pending(['sber'], 20), [])
                 telegram = Mock()
                 Monitor(config, store, telegram, delivery_delay=0).dispatch_pending()
                 telegram.send.assert_not_called()

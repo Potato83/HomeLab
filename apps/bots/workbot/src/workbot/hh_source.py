@@ -56,8 +56,6 @@ def security_roles(text, rules):
                 if row['id'] in found and found[row['id']] != row['name']:
                     raise ParseError('hh.ru: противоречивые профессиональные роли')
                 found[row['id']] = row['name']
-    if not found and rules.get('directions', ['security']) == ['security']:
-        raise ParseError('hh.ru: в справочнике не найдены роли ИБ')
     return found
 
 
@@ -228,14 +226,11 @@ def collect_hh(settings, client, rules):
             request_count += 1
             if request_count > 500:
                 raise ParseError('hh.ru: превышен лимит 500 запросов за проверку; сузьте поиск')
-            query = group + [('experience', 'noExperience'), ('experience', 'between1And3'),
-                             ('page', page), ('per_page', size)]
+            query = group + [('page', page), ('per_page', size)]
             if date_from is not None:
                 query += [('date_from', date_from), ('date_to', date_to)]
             rows, paging = parse_page(get('/vacancies?' + urlencode(query)), page, size, allow_depth_split=True)
             for v in rows:
-                if v.level == 'experienced':
-                    raise ParseError('hh.ru: API проигнорировал фильтр опыта')
                 if group[0][0] == 'professional_role' and not any(name in roles.values() for name in v.categories):
                     raise ParseError('hh.ru: API проигнорировал фильтр ролей')
             return rows, paging
