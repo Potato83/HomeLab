@@ -1,0 +1,33 @@
+#!/sbin/openrc-run
+description="OmniRoute private AI gateway"
+
+depend() {
+    need net sing-box
+    after nftables
+}
+
+start() {
+    if [ -f /var/lib/homelab-control/omniroute-maintenance ] &&
+       [ ! -f /run/homelab-omniroute-start ]; then
+        eerror "OmniRoute update recovery is pending"
+        return 1
+    fi
+    ebegin "Starting OmniRoute"
+    /usr/bin/podman start omniroute >/dev/null
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping OmniRoute"
+    /usr/bin/podman stop --time 40 omniroute >/dev/null
+    eend $?
+}
+
+status() {
+    if [ "$(/usr/bin/podman inspect --format '{{.State.Running}}' omniroute 2>/dev/null)" = true ]; then
+        einfo "OmniRoute container is running"
+        return 0
+    fi
+    eerror "OmniRoute container is stopped"
+    return 3
+}

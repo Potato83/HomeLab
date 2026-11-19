@@ -2,6 +2,11 @@ import importlib.util
 import json
 import time
 from pathlib import Path
+from unittest.mock import MagicMock
+from urllib.error import HTTPError, URLError
+
+import pytest
+
 from serverbot.collectors.host import read_host_snapshot
 
 
@@ -103,3 +108,28 @@ def test_probe_counts_app_process_without_counting_uv_wrapper():
     assert probe.is_bot_process([b'python', b'-m', b'workbot'], 'workbot', 'workbot')
     assert not probe.is_bot_process([b'uv', b'run', b'bot'], 'workbot', 'workbot')
     assert not probe.is_bot_process([b'python', b'-m', b'other'], 'workbot', 'workbot')
+
+
+@pytest.mark.parametrize(('response', 'expected'), [
+    (200, ('ok', 'OmniRoute health endpoint responds')),
+    (204, ('critical', 'OmniRoute health returned HTTP 204')),
+    (HTTPError('http://local.test', 503, 'private reason', {}, None),
+     ('error', 'OmniRoute health returned HTTP 503')),
+    (URLError(ConnectionRefusedError('private reason')), ('error', 'OmniRoute health connection refused')),
+    (URLError(TimeoutError('private reason')), ('error', 'OmniRoute health request timed out')),
+    (TimeoutError('private reason'), ('error', 'OmniRoute health request timed out')),
+    (URLError('private reason'), ('error', 'Health query failed')),
+])
+def test_gateway_health_reports_safe_diagnostics(monkeypatch, response, expected):
+    spec = importlib.util.spec_from_file_location('probe_gateway_test', Path(__file__).resolve().parents[1] / 'deploy/host/probe.py')
+    probe = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(probe)
+    opener = MagicMock()
+    if isinstance(response, Exception):
+        opener.open.side_effect = response
+    else:
+        opener.open.return_value.__enter__.return_value.status = response
+    monkeypatch.setattr(probe, 'build_opener', lambda handler: opener)
+
+    assert probe.gateway_health() == expected
+    opener.open.assert_called_once_with('http://127.0.0.1:20127/healthz', timeout=5)

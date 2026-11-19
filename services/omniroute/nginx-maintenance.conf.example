@@ -1,0 +1,5 @@
+# Include in the nginx http context.
+map $server_addr $omniroute_maintenance_file {
+    default /var/lib/homelab-control/omniroute-maintenance;
+    127.0.0.1 "";
+}

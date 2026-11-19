@@ -7,6 +7,8 @@ import socket
 import subprocess
 import time
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import ProxyHandler, build_opener
 
 BASE = Path('/var/lib/homelab-health')
 KALI_SSH_HOST = os.environ.get('HOMELAB_KALI_SSH_HOST', '').strip()
@@ -31,6 +33,24 @@ def is_bot_process(args, user, module):
         arg == b'-m' and following == module.encode()
         for arg, following in zip(args, args[1:])
     )
+
+def gateway_health():
+    opener = build_opener(ProxyHandler({}))
+    try:
+        with opener.open('http://127.0.0.1:20127/healthz', timeout=5) as response:
+            if response.status == 200:
+                return 'ok', 'OmniRoute health endpoint responds'
+            return 'critical', f'OmniRoute health returned HTTP {response.status}'
+    except HTTPError as error:
+        error.close()
+        return 'error', f'OmniRoute health returned HTTP {error.code}'
+    except (URLError, TimeoutError, ConnectionRefusedError) as error:
+        reason = error.reason if isinstance(error, URLError) else error
+        if isinstance(reason, TimeoutError):
+            return 'error', 'OmniRoute health request timed out'
+        if isinstance(reason, ConnectionRefusedError):
+            return 'error', 'OmniRoute health connection refused'
+        return 'error', 'Health query failed'
 
 def main():
     from control import monitoring_overrides
@@ -107,12 +127,7 @@ def main():
             with urllib.request.urlopen('https://dl-cdn.alpinelinux.org/alpine/', timeout=5) as response:
                 return ('ok','Alpine HTTPS endpoint responds') if response.status == 200 else ('warning','Unexpected HTTP status')
         check('network:https','Host internet HTTPS',https)
-        def gateway():
-            import urllib.request
-            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-            with opener.open('http://127.0.0.1:20127/api/monitoring/health',timeout=5) as response:
-                return ('ok','OmniRoute health endpoint responds') if response.status == 200 else ('critical','Unexpected gateway response')
-        check('gateway:health','OmniRoute API',gateway)
+        check('gateway:health','OmniRoute API',gateway_health)
         check('time:ntp','Clock synchronization',lambda: ('ok','chrony synchronized') if
             'Leap status     : Normal' in run(['/usr/bin/chronyc','tracking'])[1] else ('warning','chrony not synchronized'))
         def smart():
