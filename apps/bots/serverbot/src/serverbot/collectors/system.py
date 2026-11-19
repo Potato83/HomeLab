@@ -1,18 +1,12 @@
 import asyncio
-import ipaddress
 import os
-import re
-import shutil
 import stat
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from aiohttp import ClientError, ClientSession, ClientTimeout
-
 PROC_ROOT = Path("/proc")
 MAX_LOG_BYTES = 512 * 1024
-DOCKER_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z", re.ASCII)
 
 
 @dataclass(frozen=True)
@@ -34,13 +28,6 @@ class SystemReading:
     load_average: tuple[float, float, float]
     top_cpu: tuple[ProcessReading, ...]
     top_memory: tuple[ProcessReading, ...]
-
-
-@dataclass(frozen=True)
-class DockerReading:
-    available: bool
-    containers: tuple[tuple[str, str], ...] = ()
-    error: str | None = None
 
 
 def _safe_text(value: str, limit: int = 120) -> str:
@@ -152,74 +139,6 @@ def is_process_alive(name: str) -> bool:
             except (OSError, ValueError):
                 continue
     return False
-
-
-async def check_ping(host: str, timeout_seconds: int) -> bool | None:
-    try:
-        process = await asyncio.create_subprocess_exec(
-            "ping", "-c", "1", "-W", str(timeout_seconds), host,
-            stdin=asyncio.subprocess.DEVNULL,
-            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
-        )
-    except FileNotFoundError:
-        return None
-    except OSError:
-        return False
-    try:
-        return await asyncio.wait_for(process.wait(), timeout_seconds + 2) == 0
-    except TimeoutError:
-        if process.returncode is None:
-            process.kill()
-        await process.wait()
-        return False
-
-
-async def get_external_ip(url: str | None, session: ClientSession) -> str | None:
-    if url is None:
-        return None
-    try:
-        async with session.get(url, timeout=ClientTimeout(total=5), allow_redirects=False) as response:
-            if response.status != 200:
-                return None
-            body = (await response.content.read(64)).decode("ascii").strip()
-        return str(ipaddress.ip_address(body))
-    except (ClientError, OSError, UnicodeError, ValueError, TimeoutError):
-        return None
-
-
-async def get_docker_reading() -> DockerReading:
-    if shutil.which("docker") is None:
-        return DockerReading(available=False)
-    process = None
-    try:
-        process = await asyncio.create_subprocess_exec(
-            "docker", "ps", "-a", "--format", "{{.Names}}\t{{.Status}}",
-            stdin=asyncio.subprocess.DEVNULL,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
-        )
-    except OSError:
-        return DockerReading(available=True, error="Docker query failed")
-    try:
-        output, _ = await asyncio.wait_for(process.communicate(), timeout=5)
-    except TimeoutError:
-        if process.returncode is None:
-            process.kill()
-        await process.wait()
-        return DockerReading(available=True, error="Docker query timed out")
-    except OSError:
-        if process.returncode is None:
-            process.kill()
-        await process.wait()
-        return DockerReading(available=True, error="Docker query failed")
-    if process.returncode != 0:
-        return DockerReading(available=True, error="Docker query failed")
-    containers = []
-    for line in output.decode("utf-8", errors="replace").splitlines()[:100]:
-        name, separator, status = line.partition("\t")
-        if separator:
-            safe_name = _safe_text(name) if DOCKER_NAME_PATTERN.fullmatch(name) else "[invalid container name]"
-            containers.append((safe_name, _safe_text(status)))
-    return DockerReading(available=True, containers=tuple(containers))
 
 
 def read_log_tail(path: Path, allowed_directories: Sequence[Path], lines: int) -> list[str]:

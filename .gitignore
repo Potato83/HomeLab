@@ -28,6 +28,4 @@ backups/
 .obsidian/
 /private/
 /local-history/
-LLM-for-CTF/
-CTF-harness/
 config.local.toml

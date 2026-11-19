@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from workbot.config import load_config
 from workbot.http import FetchError, telegram_call
+from workbot.locking import InstanceRunning, instance_lock
 from workbot.matching import decide, infer_format
 from workbot.models import Vacancy
 from workbot.service import scan
@@ -140,15 +141,12 @@ class PersistenceTests(unittest.TestCase):
         self.assertTrue(result["sources"]["kaspersky"]["error"])
         self.assertEqual(len(self.store.pending(["kaspersky"], 20)), 0)
 
-    def test_cycle_lock(self):
-        other = Store(self.path)
-        try:
-            with self.store.cycle_lock():
-                with self.assertRaises(RuntimeError):
-                    with other.cycle_lock():
-                        pass
-        finally:
-            other.close()
+    def test_instance_lock(self):
+        with instance_lock(self.path):
+            with self.assertRaises(InstanceRunning), instance_lock(self.path):
+                self.fail("Second instance acquired the database lock")
+        with instance_lock(self.path):
+            self.assertTrue(Path(str(self.path) + ".instance.lock").is_file())
 
 
 class TelegramTests(unittest.TestCase):

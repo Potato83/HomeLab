@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
-from .locking import database_path, file_lock
+from .locking import database_path
 from .matching import decide
 from .models import Vacancy
 
@@ -41,11 +41,7 @@ class Store:
     def close(self):
         self.db.close()
 
-    def cycle_lock(self):
-        return file_lock(str(database_path(self.db.execute('PRAGMA database_list').fetchone()[2])) + '.lock',
-                         'Другой процесс уже выполняет проверку')
-
-    def save_snapshot(self, source, records, rules=None):
+    def save_snapshot(self, source, records):
         stamp = now()
         ids = {v.external_id for v, _ in records}
         with self.db:

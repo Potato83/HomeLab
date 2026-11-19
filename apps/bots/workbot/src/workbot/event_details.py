@@ -2,10 +2,6 @@
 import re
 from .models import normalize, Vacancy
 
-LANGUAGES = {'any', 'ru', 'en', 'other', 'unknown'}
-PRICES = {'any', 'free', 'free_or_unknown', 'paid'}
-
-
 def cancelled_title(title):
     value = normalize(title)
     return bool(re.search(r'^(?:\[(?:cancelled|canceled|отменено)\]|(?:cancelled|canceled|отменено)\s*[:\-])|[\[(](?:cancelled|canceled|отменено)[\])]$', value))
@@ -68,16 +64,3 @@ def enrich_terms(v):
     v.price = '; '.join(prices)[:100] if prices else 'не указана'
     v.price_kind = next(iter(kinds)) if len(kinds) == 1 else 'unknown'
     return v
-
-
-def terms_decision(v, rules):
-    languages = rules.get('event_languages', ['any'])
-    codes = set(v.language_codes) or {'unknown'}
-    if 'any' not in languages and not codes.intersection(languages):
-        return 'Язык мероприятия исключён настройками'
-    price = rules.get('event_price', 'any')
-    if price == 'free_or_unknown' and v.price_kind not in ('free', 'unknown'):
-        return 'Платное участие исключено настройками'
-    if price in ('free', 'paid') and v.price_kind != price:
-        return 'Стоимость участия не соответствует настройкам'
-    return ''

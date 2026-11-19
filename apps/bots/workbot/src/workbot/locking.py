@@ -14,24 +14,20 @@ def database_path(value):
 
 
 @contextmanager
-def file_lock(path, message, error_type=RuntimeError):
+def instance_lock(value):
     import fcntl
-    path = Path(path)
+    path = Path(str(database_path(value)) + '.instance.lock')
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     # Keep the file after unlock. Removing it can create two independently locked inodes.
     with path.open('a') as handle:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            raise error_type(message) from None
+            raise InstanceRunning(
+                'Другой экземпляр уже использует эту базу. Остановите его; '
+                'для внеплановой проверки работающего бота используйте /check.'
+            ) from None
         try:
             yield
         finally:
             fcntl.flock(handle, fcntl.LOCK_UN)
-
-
-def instance_lock(value):
-    path = database_path(value)
-    return file_lock(str(path) + '.instance.lock',
-        'Другой экземпляр уже использует эту базу. Остановите его; для внеплановой проверки работающего бота используйте /check.',
-        InstanceRunning)

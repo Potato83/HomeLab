@@ -18,11 +18,6 @@ def infer_format(text):
         return 'office'
     return 'unknown'
 
-def entry_level(title, level):
-    if re.search(r'стаж[её]р|стажиров|\bintern(?:ship)?\b|\btrainee\b', normalize(title)):
-        return 'intern'
-    return level if level in ('intern', 'junior') else 'junior'
-
 def keyword_hit(word, text):
     word = normalize(word)
     # Short acronyms must be words: ИБ must not match ошибка.
@@ -30,7 +25,7 @@ def keyword_hit(word, text):
         return bool(re.search(r'(?<!\w)' + re.escape(word) + r'(?!\w)', text))
     return word in text
 
-def decide(v: Vacancy, rules, allow_unverified=False) -> Decision:
+def decide(v: Vacancy, rules) -> Decision:
     if v.recruitment_status not in ('open', 'unknown', 'closed'):
         return Decision(False, 'Неизвестный статус набора')
     if not v.active or v.recruitment_status == 'closed' or v.event_status == 'cancelled':

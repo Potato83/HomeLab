@@ -82,7 +82,7 @@ class FastTrackTests(unittest.TestCase):
     def test_closed_and_conflicting_page_status(self):
         rows = self.parse(document('Набор заявок завершен'))
         self.assertTrue(all(not row.active and row.recruitment_status == 'closed' for row in rows))
-        self.assertFalse(decide(rows[0], self.rules, True).matched)
+        self.assertFalse(decide(rows[0], self.rules).matched)
         with self.assertRaises(ParseError):
             self.parse(document('Набор заявок открыт', 'Набор заявок завершен'))
 
@@ -160,7 +160,7 @@ class FastTrackTests(unittest.TestCase):
 
 
     def test_invalid_status_does_not_match(self):
-        self.assertFalse(decide(replace(self.parse()[0], recruitment_status='broken'), self.rules, True).matched)
+        self.assertFalse(decide(replace(self.parse()[0], recruitment_status='broken'), self.rules).matched)
 
 
 

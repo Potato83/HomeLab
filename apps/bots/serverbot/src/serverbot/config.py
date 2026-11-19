@@ -1,4 +1,3 @@
-import ipaddress
 import math
 import re
 import tomllib
@@ -67,13 +66,6 @@ class SystemConfig:
 
 
 @dataclass(frozen=True)
-class NetworkConfig:
-    ping_host: str | None = None
-    ping_timeout_seconds: int = 3
-    external_ip_url: str | None = None
-
-
-@dataclass(frozen=True)
 class LogFileConfig:
     name: str
     path: Path
@@ -125,7 +117,6 @@ class AppConfig:
     batteries: tuple[BatteryCheckConfig, ...] = ()
     processes: tuple[ProcessCheckConfig, ...] = ()
     system: SystemConfig | None = None
-    network: NetworkConfig = NetworkConfig()
     log_files: tuple[LogFileConfig, ...] = ()
     log_directories: tuple[Path, ...] = ()
     max_log_lines: int = 200
@@ -361,40 +352,6 @@ def load_config(path: str | Path | None = None) -> AppConfig:
         raise ConfigError("system.top_processes must be an integer from 1 to 10")
     system = SystemConfig(cpu_warning, cpu_critical, memory_warning, memory_critical, top_processes)
 
-    network_section = raw.get("network", {})
-    if not isinstance(network_section, dict):
-        raise ConfigError("network must be a table")
-    ping_host = network_section.get("ping_host", "")
-    if not isinstance(ping_host, str):
-        raise ConfigError("network.ping_host must be a host name or IP address")
-    ping_host = ping_host.strip() or None
-    if ping_host is not None:
-        try:
-            ipaddress.ip_address(ping_host)
-        except ValueError:
-            labels = ping_host.split(".")
-            if len(ping_host) > 253 or any(
-                not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", label, re.ASCII)
-                for label in labels
-            ):
-                raise ConfigError("network.ping_host must be a valid host name or IP address") from None
-    ping_timeout = network_section.get("ping_timeout_seconds", 3)
-    if isinstance(ping_timeout, bool) or not isinstance(ping_timeout, int) or not 1 <= ping_timeout <= 10:
-        raise ConfigError("network.ping_timeout_seconds must be an integer from 1 to 10")
-    external_ip_url = network_section.get("external_ip_url", "")
-    if not isinstance(external_ip_url, str):
-        raise ConfigError("network.external_ip_url must be a URL")
-    external_ip_url = external_ip_url.strip() or None
-    if external_ip_url is not None:
-        try:
-            ip_url = urlsplit(external_ip_url)
-            ip_url.port
-        except ValueError:
-            raise ConfigError("Invalid external IP URL") from None
-        if ip_url.scheme != "https" or not ip_url.hostname or ip_url.username or ip_url.password or ip_url.fragment:
-            raise ConfigError("network.external_ip_url must use HTTPS without credentials or fragments")
-    network = NetworkConfig(ping_host, ping_timeout, external_ip_url)
-
     logs_section = raw.get("logs", {})
     if not isinstance(logs_section, dict):
         raise ConfigError("logs must be a table")
@@ -465,7 +422,7 @@ def load_config(path: str | Path | None = None) -> AppConfig:
         disks=tuple(mounts), temperatures=tuple(temperatures), http_checks=tuple(services),
         check_interval_seconds=interval, state_file=state_path, backups=tuple(backups),
         batteries=tuple(batteries), processes=tuple(processes), system=system,
-        network=network, log_files=tuple(log_files), log_directories=tuple(log_directories),
+        log_files=tuple(log_files), log_directories=tuple(log_directories),
         max_log_lines=max_log_lines, command_rate_limit_seconds=command_rate_limit,
         digest_interval_hours=digest_hours, digest_hour=digest_hour,
         host_snapshot=Path(snapshot_path) if snapshot_path is not None else None,

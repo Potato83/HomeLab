@@ -12,12 +12,6 @@ memory_critical_percent = 95
 # Number of processes shown in each top-process list (1 to 10).
 top_processes = 5
 
-# Network checks are currently disabled. Uncomment and configure when needed.
-# [network]
-# ping_host = "" # Host checked from the laptop with ping.
-# ping_timeout_seconds = 3 # Ping deadline in seconds (1 to 10).
-# external_ip_url = "" # Optional HTTPS endpoint that returns the public IP.
-
 [defaults.disk]
 warning = 80
 critical = 90

@@ -8,6 +8,6 @@
 - `infra/alpine/`: особенности текущей ОС. Другие ОС добавляются при реальной миграции.
 - `docs/`: архитектура, настройка, эксплуатация.
 
-[Настройка и управление](docs/setup-and-operations.md) · [Архитектура](docs/architecture.md) · [Закрытый CTF-проект](docs/ctf-harness.md)
+[Настройка и управление](docs/setup-and-operations.md) · [Архитектура](docs/architecture.md)
 
 Все работающие боты: `uv sync --locked`, затем `uv run bot`.
