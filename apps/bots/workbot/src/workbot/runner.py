@@ -9,8 +9,8 @@ from .reporting import status_text
 from .telegram import deliver, format_message
 
 HELP = (
-    '/jobs [слово] — последние 5 вакансий\n'
-    '/events [слово] — последние 5 событий\n'
+    '/jobs [слово] — до 5 свежих вакансий из разных источников\n'
+    '/events [слово] — до 5 ближайших событий\n'
     '/keywords — слова поиска\n'
     '/keywords SOC, DevOps, CTF — заменить слова\n'
     '/exclude слово, фраза — исключить; /exclude - — очистить\n'

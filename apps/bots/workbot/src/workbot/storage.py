@@ -1,6 +1,7 @@
 """Small SQLite queue, compatible with the previous delivery history."""
 from dataclasses import asdict
 from datetime import datetime, timezone
+from itertools import islice, zip_longest
 import json
 import os
 from pathlib import Path
@@ -73,10 +74,19 @@ class Store:
             """, (source, now(), error[:300]))
 
     def pending(self, enabled_sources, limit):
-        rows = self.db.execute('''SELECT v.* FROM vacancies v LEFT JOIN source_status s USING(source)
+        enabled_sources = tuple(enabled_sources)
+        if not enabled_sources:
+            return []
+        placeholders = ','.join('?' for _ in enabled_sources)
+        query = f'''
+            SELECT v.* FROM vacancies v LEFT JOIN source_status s USING(source)
             WHERE v.active=1 AND v.matched=1 AND v.sent_generation<v.generation AND s.error IS NULL
-            ORDER BY first_seen DESC,source,external_id''')
-        return [r for r in rows if r['source'] in enabled_sources][:limit]
+                AND v.source IN ({placeholders})
+            ORDER BY ROW_NUMBER() OVER (PARTITION BY v.source ORDER BY v.first_seen, v.external_id),
+                v.first_seen, v.source, v.external_id
+            LIMIT ?
+        '''
+        return self.db.execute(query, (*enabled_sources, limit)).fetchall()
 
     def mark_sent(self, row):
         with self.db:
@@ -103,20 +113,36 @@ class Store:
 
     def search(self, kind, rules, enabled_sources, query='', limit=5):
         result = []
+        by_source = {}
         selected = dict(rules)
         if query:
             selected['include_words'] = [query[:60]]
         order = "julianday(json_extract(payload,'$.vacancy.start_at')),first_seen DESC" if kind == 'event' else 'first_seen DESC'
         for row in self.db.execute('SELECT * FROM vacancies WHERE active=1 ORDER BY ' + order + ',source,external_id'):
+            if row['source'] not in enabled_sources:
+                continue
             payload = json.loads(row['payload'])
             v = Vacancy(**payload['vacancy'])
-            if row['source'] in enabled_sources and v.kind == kind:
-                d = decide(v, selected)
-                if d.matched:
-                    payload['decision'] = asdict(d)
-                    result.append(payload)
-                    if len(result) == limit:
-                        break
+            if v.kind != kind:
+                continue
+            decision = decide(v, selected)
+            if not decision.matched:
+                continue
+            payload['decision'] = asdict(decision)
+            if kind == 'vacancy':
+                vacancies = by_source.setdefault(v.source, [])
+                if len(vacancies) < limit:
+                    vacancies.append(payload)
+                if len(by_source) == limit:
+                    break
+            else:
+                result.append(payload)
+                if len(result) == limit:
+                    break
+        if kind == 'vacancy':
+            rounds = zip_longest(*by_source.values())
+            vacancies = (payload for batch in rounds for payload in batch if payload is not None)
+            return list(islice(vacancies, limit))
         return result
 
     def get_state(self, key, default=None):

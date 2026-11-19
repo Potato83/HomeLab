@@ -134,13 +134,20 @@ async def check_and_notify(bot: Bot, config: AppConfig, http_session: ClientSess
         saved = new_states[str(user_id)]
         for result in results:
             previous = saved.get(result.key)
+            status = result.status
+            name = result.name
+            if result.key == "bot:workbot-db":
+                # WorkBot source failures use warning when the database is readable.
+                previous = "ok" if previous == "warning" else previous
+                status = "ok" if status == "warning" else status
+                name = "WorkBot database"
             if result.detail in {'Stopped manually', 'Control operation in progress'}:
                 # A deliberate stop is neither a failure nor a recovery notification.
-                saved[result.key] = result.status
+                saved[result.key] = status
                 continue
-            if should_notify(previous, result.status):
-                title = "RECOVERED" if result.status == "ok" else "ALERT"
-                message = f"{title}: {result.name}\n{(previous or 'unknown').upper()} -> {result.status.upper()}\n{result.detail}"
+            if should_notify(previous, status):
+                title = "RECOVERED" if status == "ok" else "ALERT"
+                message = f"{title}: {name}\n{(previous or 'unknown').upper()} -> {status.upper()}\n{result.detail}"
                 try:
                     for text in format_report_messages(message):
                         await bot.send_message(user_id, text, parse_mode="HTML")
@@ -148,8 +155,8 @@ async def check_and_notify(bot: Bot, config: AppConfig, http_session: ClientSess
                     logger.warning("alert_send_failed user_id=%s error_type=%s", user_id, type(error).__name__)
                     # Keep the previous state so the next poll can retry delivery
                     continue
-                logger.info("state_changed user_id=%s state=%s", user_id, result.status)
-            saved[result.key] = result.status
+                logger.info("state_changed user_id=%s state=%s", user_id, status)
+            saved[result.key] = status
     if new_states != state.states:
         try:
             state.save(new_states)

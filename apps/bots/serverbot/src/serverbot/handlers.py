@@ -59,21 +59,6 @@ def build_disk_report(
     return "\n".join(lines) or "No disks configured"
 
 
-def build_disk_details(disks: Iterable[DiskMountConfig]) -> str:
-    lines = []
-    for disk in disks:
-        try:
-            info = GetDiskUsage(disk.path)
-        except OSError:
-            lines.append(f"{disk.path}: ERROR: Cannot read disk usage")
-            continue
-        lines.append(
-            f"{disk.path}\nUsed: {info.used / (1024**3):.1f} GB\n"
-            f"Free: {info.free / (1024**3):.1f} GB\nTotal: {info.total / (1024**3):.1f} GB"
-        )
-    return "Disk details:\n" + ("\n\n".join(lines) if lines else "No disks configured")
-
-
 def build_temperature_report(
     checks: Iterable[TemperatureCheckConfig],
     temperature_reader: Callable[[TemperatureCheckConfig], TemperatureReading] = get_temperature,

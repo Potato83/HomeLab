@@ -4,6 +4,7 @@
 
 - `apps/bots/`: ServerBot, ChatBot и WorkBot.
 - `services/omniroute/`: описание AI gateway и безопасные примеры конфигурации.
+- [`services/sing-box/`](services/sing-box/README.md) — локальный прокси для служб на Alpine.
 - `infra/alpine/`: особенности текущей ОС. Другие ОС добавляются при реальной миграции.
 - `docs/`: архитектура, настройка, эксплуатация.
 

@@ -1,5 +1,9 @@
 import asyncio
+import json
+import time
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from serverbot.collectors.disk import DiskUsageInfo
 from serverbot.collectors.http import HttpReading
@@ -43,6 +47,51 @@ def test_initial_problem_is_sent_once_across_restart(tmp_path, monkeypatch):
     asyncio.run(check_and_notify(bot, AppConfig(()), MagicMock(), frozenset({123}), StateStore(path)))
     asyncio.run(check_and_notify(bot, AppConfig(()), MagicMock(), frozenset({123}), StateStore(path)))
     assert bot.send_message.await_count == 1
+
+
+@pytest.mark.parametrize("first_status", ["warning", "ok"])
+def test_workbot_source_warnings_are_silent_but_database_outages_alert(tmp_path, first_status):
+    async def run():
+        key = "bot:workbot-db"
+        snapshots = {
+            "warning": ("WorkBot sources", "Source errors: 3; database readable"),
+            "ok": ("WorkBot sources", "Source errors: 0; database readable"),
+            "critical": ("WorkBot sources", "Database query failed"),
+        }
+        path = tmp_path / "host.json"
+        config = AppConfig((), host_snapshot=path)
+        bot = MagicMock(send_message=AsyncMock())
+        state = StateStore(tmp_path / "state.json")
+        state.save({"123": {key: "warning"}})
+
+        async def sample(status, operational_status="ok"):
+            name, detail = snapshots[status]
+            path.write_text(json.dumps({"timestamp": time.time(), "checks": [
+                {"key": key, "name": name, "status": status, "detail": detail},
+                {"key": "service:workbot", "name": "WorkBot service", "status": operational_status, "detail": "OpenRC"},
+                {"key": "bot:workbot", "name": "WorkBot process", "status": operational_status, "detail": "Process count"},
+            ]}))
+            await check_and_notify(bot, config, MagicMock(), frozenset({123}), state)
+
+        for status in (first_status, "warning", "ok", "warning"):
+            await sample(status)
+        bot.send_message.assert_not_awaited()
+        assert StateStore(state.path).states["123"][key] == "ok"
+
+        await sample("critical", operational_status="critical")
+        await sample("critical", operational_status="critical")
+        await sample("warning", operational_status="critical")
+        texts = [call.args[1] for call in bot.send_message.await_args_list]
+        assert [text.splitlines()[0] for text in texts] == [
+            "<pre>ALERT: WorkBot database",
+            "<pre>ALERT: WorkBot service",
+            "<pre>ALERT: WorkBot process",
+            "<pre>RECOVERED: WorkBot database",
+        ]
+        assert "OK -&gt; CRITICAL" in texts[0]
+        assert "CRITICAL -&gt; OK" in texts[-1]
+
+    asyncio.run(run())
 
 
 def test_failed_recipient_is_retried_without_repeating_successful_delivery(tmp_path, monkeypatch):

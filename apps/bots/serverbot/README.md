@@ -11,6 +11,9 @@ uv run bot
 
 `BOT_TOKEN`, `ALLOWED_USER_IDS` — Telegram ID через запятую. `config.toml` задаёт проверки и пороги.
 
+`/status` → «Подробнее» → «Диски и обновления» показывает занятое место и
+крупнейшие каталоги корневого раздела после установки [сборщика](docs/host-monitoring.md).
+
 Проверки: `uv run pytest`. Код: `src/serverbot/`, тесты: `tests/`, состояние: `data/`.
 
 [Настройки](docs/guide.md) · [Панель управления](docs/control-panel.md) · [Мониторинг Alpine](docs/host-monitoring.md) · [Установка и службы](../../../docs/setup-and-operations.md)

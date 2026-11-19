@@ -102,6 +102,34 @@ def test_source_error_preserves_snapshot_and_other_source_continues(config,store
     assert store.db.execute('SELECT active FROM vacancies').fetchone()[0] == 1
     assert store.pending(['kaspersky'],10) == []
 
+def test_delivery_interleaves_sources_and_clears_older_backlog(config, store):
+    rules = config['filters']
+    sources = ['habr', 'sber', 'kaspersky']
+
+    def save_jobs(source, *external_ids):
+        jobs = [job(source=source, external_id=external_id, title=f'SOC {external_id}')
+                for external_id in external_ids]
+        store.save_snapshot(source, [(v, decide(v, rules)) for v in jobs])
+
+    with patch('workbot.storage.now', return_value='2026-11-19T10:00:00+00:00'):
+        save_jobs('habr', 'habr-oldest', 'habr-second')
+        save_jobs('sber', 'sber-oldest', 'sber-second')
+    with patch('workbot.storage.now', return_value='2026-11-19T10:00:01+00:00'):
+        save_jobs('kaspersky', 'kaspersky-only')
+
+    assert [r['source'] for r in store.pending(sources, 3)] == sources
+    telegram = Mock()
+    assert deliver(store, telegram, sources, 2, delay=0, rules=rules) == 2
+    with patch('workbot.storage.now', return_value='2026-11-19T10:00:02+00:00'):
+        save_jobs('habr', 'habr-oldest', 'habr-second', 'habr-new')
+        save_jobs('sber', 'sber-oldest', 'sber-second', 'sber-new')
+    assert deliver(store, telegram, sources, 2, delay=0, rules=rules) == 2
+    assert deliver(store, telegram, sources, 2, delay=0, rules=rules) == 2
+    titles = [call.args[0].splitlines()[0] for call in telegram.send.call_args_list]
+    assert titles == [f'<b>SOC {external_id}</b>' for external_id in (
+        'habr-oldest', 'sber-oldest', 'habr-second', 'sber-second', 'kaspersky-only', 'habr-new',
+    )]
+
 def test_owner_commands_work_during_scan_and_stale_results_are_discarded(config,store):
     tg = Telegram('dummy','42')
     tg.send = Mock()
@@ -130,6 +158,31 @@ def test_jobs_and_events_use_saved_snapshots_without_new_fetch(config,store):
         monitor.handle({'message':{'chat':{'id':42,'type':'private'},'from':{'id':42},'text':'/jobs SOC'}})
         background.assert_not_called()
     assert 'Senior SOC' in tg.send.call_args.args[0]
+
+def test_jobs_show_multiple_sources_and_events_stay_in_date_order(config, store):
+    rules = config['filters']
+    future = datetime.now(timezone.utc) + timedelta(days=1)
+    jobs = [job(external_id=f'job-{i}') for i in range(6)]
+    events = [job(external_id=f'event-{i}', title='CTF', kind='event',
+                  start_at=(future + timedelta(days=i)).isoformat(),
+                  end_at=(future + timedelta(days=i, hours=1)).isoformat()) for i in range(3)]
+    events[2].source = 'bastion'
+    oldest = job(external_id='first')
+    other = job(source='bastion', external_id='other')
+    with patch('workbot.storage.now', return_value='2026-11-19T10:00:00+00:00'):
+        store.save_snapshot('bastion', [(v, decide(v, rules)) for v in (other, events[2])])
+        store.save_snapshot('kaspersky', [(oldest, decide(oldest, rules))])
+    with patch('workbot.storage.now', return_value='2026-11-19T10:00:01+00:00'):
+        latest = [*jobs, oldest, *events[:2]]
+        store.save_snapshot('kaspersky', [(v, decide(v, rules)) for v in latest])
+
+    sources = ['kaspersky', 'bastion']
+    vacancies = store.search('vacancy', rules, sources, 'SOC')
+    assert [p['vacancy']['external_id'] for p in vacancies] == [
+        'job-0', 'other', 'job-1', 'job-2', 'job-3',
+    ]
+    closest = store.search('event', rules, sources)
+    assert [p['vacancy']['external_id'] for p in closest] == ['event-0', 'event-1', 'event-2']
 
 def test_jsonld_graph_survives_changed_css_and_is_scoped():
     node = {'@type':'JobPosting','title':'SOC analyst','description':'<p>SIEM &amp; logs</p>',

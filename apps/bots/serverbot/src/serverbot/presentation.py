@@ -6,7 +6,7 @@ from html import escape
 from zoneinfo import ZoneInfo
 
 from serverbot.collectors.battery import get_battery_reading
-from serverbot.collectors.disk import GetDiskUsage
+from serverbot.collectors.disk import GetDiskUsage, read_directory_usage
 from serverbot.collectors.host import read_host_snapshot
 from serverbot.collectors.system import get_system_reading
 from serverbot.collectors.temperature import get_temperature
@@ -14,7 +14,7 @@ from serverbot.state import threshold_status, low_threshold_status
 
 ICONS = {'ok':'🟢','warning':'🟡','critical':'🔴','error':'🔴'}
 RANK = {'ok':0,'warning':1,'critical':2,'error':3}
-LABELS = {'system:updates':'Обновления','bot:workbot-db':'Источники WorkBot',
+LABELS = {'system:updates':'Обновления','bot:workbot-db':'База WorkBot',
           'bot:chatbot-db':'База ChatBot','host:collector':'Сбор показателей',
           'gateway:health':'OmniRoute API','network:dns':'DNS','network:https':'Интернет','time:ntp':'Время','disk:smart':'SSD SMART'}
 
@@ -31,7 +31,7 @@ def short_detail(key, detail):
     if key == 'bot:workbot-db':
         match = re.search(r'Source errors: (\d+)', detail)
         if match:
-            return f'Ошибок источников: {match[1]}'
+            return f'Ошибок источников: {match[1]} · /status в WorkBot' if int(match[1]) else 'База доступна'
     if key == 'host:collector':
         return 'Показатели отсутствуют или устарели'
     return detail[:120]
@@ -101,7 +101,10 @@ async def build_mobile_status(config, http_session):
             metrics.append(f'{power} · заряд {battery.percentage}%')
     host = read_host_snapshot(config.host_snapshot) if config.host_snapshot is not None else []
     for reading in host:
-        issue(LABELS.get(reading.key,reading.name),reading.status,short_detail(reading.key,reading.detail))
+        name = LABELS.get(reading.key, reading.name)
+        if reading.key == 'bot:workbot-db' and reading.status == 'warning':
+            name = 'Источники WorkBot'
+        issue(name, reading.status, short_detail(reading.key, reading.detail))
     def state(keys):
         rows=[r for r in host if r.key in keys]
         if rows and all(r.detail == 'Stopped manually' for r in rows) and len(rows)==len(keys):
@@ -139,6 +142,23 @@ DETAIL_PAGES = {'resources':'Ресурсы', 'bots':'Боты и службы',
 def percent_bar(value):
     filled = round(max(0,min(100,value))/10)
     return '▰'*filled+'▱'*(10-filled)
+
+
+def directory_usage_lines(snapshot):
+    groups = read_directory_usage(snapshot.with_name('disk-usage.json'))
+    if not groups:
+        return ['\n<b>Крупнейшие каталоги</b>', 'Нет свежего замера']
+    lines = ['\n<b>Крупнейшие каталоги</b> · доля от родительской папки']
+    for parent in ('/', '/srv', '/var/lib'):
+        group = groups.get(parent)
+        if not group or not group.children:
+            continue
+        lines.append(f'<b>{parent}</b>')
+        for path, size in sorted(group.children.items(), key=lambda item: (-item[1], item[0])):
+            share = 100 * size / group.total
+            display_size = f'{size/1024**3:.1f} ГиБ' if size >= 1024**3 else f'{size/1024**2:.1f} МиБ'
+            lines.append(f'{escape(path)} · {display_size} · {share:.1f}%\n{percent_bar(share)}')
+    return lines
 
 
 def host_description(row):
@@ -257,6 +277,8 @@ async def build_detail_page(config, http_session, page):
                           f'Свободно {usage.free/1024**3:.1f} ГиБ']
             except OSError:
                 lines.append('🔴 Диск '+escape(disk.path[:40])+' · нет данных')
+        if config.host_snapshot is not None:
+            lines.extend(directory_usage_lines(config.host_snapshot))
         smart=indexed.get('disk:smart')
         lines.append(f'\n{ICONS[smart.status] if smart else "⚪"} <b>NVMe · SMART</b>')
         if not smart: lines.append('Нет свежих данных')

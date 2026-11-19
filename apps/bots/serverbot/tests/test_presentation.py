@@ -1,4 +1,6 @@
 import asyncio
+import json
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from pathlib import Path
@@ -71,13 +73,17 @@ def test_detail_pages_are_bounded_valid_html_and_escape_process_names(monkeypatc
 
 
 def test_detail_bots_expose_source_failure_without_marking_process_dead(monkeypatch):
+    monkeypatch.setattr(presentation,'get_system_reading',AsyncMock(return_value=system()))
     monkeypatch.setattr(presentation,'read_host_snapshot',lambda p:[
         HostReading('service:workbot','WorkBot','ok','OpenRC running'),
         HostReading('bot:workbot','WorkBot process','ok','Expected one app process; found 1'),
         HostReading('bot:workbot-db','Sources','warning','Source errors: 2; database readable')])
-    text=asyncio.run(presentation.build_detail_page(AppConfig((),host_snapshot=Path('/host.json')),None,'bots'))
+    config=AppConfig((),host_snapshot=Path('/host.json'))
+    text=asyncio.run(presentation.build_detail_page(config,None,'bots'))
     assert '🟢 Служба запущена' in text and '🟢 Процессов: 1' in text
-    assert '🟡 Ошибок источников: 2' in text
+    assert '🟡 Ошибок источников: 2 · /status в WorkBot' in text
+    summary=asyncio.run(presentation.build_mobile_status(config,None))
+    assert '🟡 Источники WorkBot' in summary
 
 
 def test_detail_navigation_only_contains_known_pages():
@@ -147,3 +153,20 @@ def test_manual_stop_is_neutral_and_explicit_in_status_and_details(monkeypatch):
     assert '⚪ OmniRoute · остановлен вручную' in summary
     details = asyncio.run(presentation.build_detail_page(config, None, 'bots'))
     assert '⚪ Остановлен вручную' in details
+
+
+def test_storage_shows_directory_shares_with_existing_smart_status(tmp_path, monkeypatch):
+    monkeypatch.setattr(presentation, 'read_host_snapshot', lambda p: [
+        HostReading('disk:smart', 'NVMe', 'ok', 'wear=2%; media errors=0')])
+    config = AppConfig((), host_snapshot=tmp_path / 'host.json')
+    missing = asyncio.run(presentation.build_detail_page(config, None, 'storage'))
+    assert 'Нет свежего замера' in missing and 'Износ · 2%' in missing
+
+    gib = 1024**3
+    (tmp_path / 'disk-usage.json').write_text(json.dumps({
+        'timestamp': time.time(),
+        'groups': {'/': {'total': 8 * gib, 'children': {'/<small>': gib, '/var': 6 * gib}}}
+    }))
+    page = asyncio.run(presentation.build_detail_page(config, None, 'storage'))
+    assert page.index('/var · 6.0 ГиБ · 75.0%') < page.index('/&lt;small&gt; · 1.0 ГиБ · 12.5%')
+    assert '▰' in page and 'Износ · 2%' in page
